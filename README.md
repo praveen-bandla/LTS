@@ -1,9 +1,10 @@
-# 🐾 Wildlife Trafficking Detection
+# 🐾 Wildlife Trafficking Detection: Using LLMs to Automate the Creation of Classifiers for Data Triage
 
 This repository contains the code used in the paper:
 
 > **"A Cost-Effective LLM-based Approach to Identify Wildlife Trafficking in Online Marketplaces"**
-> Accepted at **SIGMOD 2025**
+> Accepted to ** ACM SIGMOD 2025**
+> https://arxiv.org/html/2504.21211v1
 
 ---
 
@@ -11,7 +12,7 @@ This repository contains the code used in the paper:
 
 1. [Requirements](#-requirements)
 2. [Setup](#-setup)
-3. [Use Cases & Reproduction](#-use-cases--reproduction)
+3. [Use Cases & Reproducibility](#-use-cases--reproduction)
 
 ---
 
@@ -39,7 +40,7 @@ venv\Scripts\activate     # For Windows
 pip install -r requirements.txt
 ```
 
-🧪 Use Cases & Reproduction
+🧪 Use Cases & Reproducibility
 To reproduce experiments from the paper, run main_cluster.py with the appropriate flags:
 
 The data needed to run all experiments can be found on:
