@@ -64,32 +64,13 @@ def main():
 
 
     validation = pd.read_csv(validation_path)
-    # validation = preprocessor.preprocess_df(validation)
-    validation["training_text"] = validation["text"]
-    # validation.to_csv("validation_sharks_df.csv", index=False)
+    validation["training_text"] = validation["title"]
 
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("log", exist_ok=True)
+    os.makedirs("results", exist_ok=True)
 
-    # if cluster:
-    #     # create embeddings
-    #     data = preprocessor.preprocess_df(data)
-    #     embedder = BertTextEmbedder()
-    #     embeddings = embedder.get_bert_embeddings(data['clean_title'].to_list())
-    #     df = pd.DataFrame(embeddings)
-    #     df = pd.concat([data[["id"]], df], axis=1)
-    #     df.to_csv("./data/gpt_training_umap.csv", index=False)
-    #     ## Cluster Text with HDBSCAN
-    #     embeddings = df.iloc[:, 1:].values
-    #     clusterer = TextClusterer(min_cluster_size=20)
-
-    #     cluster_labels = clusterer.fit_predict(embeddings)
-
-    #     data['label_cluster'] = cluster_labels
-    #     # else:
-    #     #     umap_df = pd.read_csv("data/gpt_training_with_clusters.csv")
-
-    #     n_cluster = data['label_cluster'].value_counts().count()
-
-    # else:
     try:
         data = pd.read_csv(filename+"_lda.csv")
         n_cluster = data['label_cluster'].value_counts().count()
@@ -113,7 +94,7 @@ def main():
     if model == "text":
         trainer = BertFineTuner(model_finetune, None, validation)
     else:
-        trainer = MultiModel(None, None, validation)
+        raise ValueError("Currently only text model is supported")
 
     labeler = Labeling(label_model=labeling)
     labeler.set_model()
@@ -139,12 +120,12 @@ def main():
             df["answer"] = df.apply(lambda x: labeler.predict_animal_product(x), axis=1)
             df["answer"] = df["answer"].str.strip()
             df["label"] = np.where(df["answer"] == 'relevant animal', 1, 0)
-            if os.path.exists(f"data_labeled_{filename}.csv"):
-                train_data = pd.read_csv(f"data_labeled_{filename}.csv")
+            if os.path.exists(f"{filename}_data_labeled.csv"):
+                train_data = pd.read_csv(f"{filename}_data_labeled.csv")
                 train_data = pd.concat([train_data, df])
-                train_data.to_csv(f"data_labeled_{filename}.csv", index=False)
+                train_data.to_csv(f"{filename}_data_labeled.csv", index=False)
             else:
-                df.to_csv(f"data_labeled_{filename}.csv", index=False)
+                df.to_csv(f"{filename}_data_labeled.csv", index=False)
         else:
             df = sample_data
         print(df["label"].value_counts())
@@ -171,11 +152,10 @@ def main():
                     # Shuffle the rows
                     df = balanced_df.sample(frac=1).reset_index(drop=True)
                     print(f"Balanced data: {df.label.value_counts()}")
-            else:
+            # else:
                 # if i == 0: # if this is the first model training
-                print("continue")
-                continue
-
+                # unbalanced = True
+                # print("No positive samples to balance with.")
         ## FINE TUNE MODEL
 
         #previous model

@@ -1,6 +1,7 @@
 import pandas as pd
 from pprint import pprint
 import torch
+import os
 
 from transformers import (
     AutoModelForCausalLM,
@@ -113,7 +114,7 @@ class Labeling:
             self.prompt_llama = self.generate_llama_prompt()
             print("model Loaded")
         elif self.label_model == "gpt":
-            self.model = OpenAI(api_key="xxxxx")
+            self.model = OpenAI(api_key="YOUR_OPENAI_API_KEY")
         elif self.label_model =="file":
             self.model = None
 
@@ -154,22 +155,25 @@ class Labeling:
 
 
     def get_gpt_label(self, row):
-        labels =  pd.read_csv("labaled_by_gpt.csv")
+        if os.path.exists("labaled_by_gpt.csv"):
+            labels =  pd.read_csv("labaled_by_gpt.csv")
+        else:
+            labels = None
         id_ = row["id"]
         prompt = row["text"]
-        if id_ in labels["id"].to_list():
-            return labels.loc[labels["id"] == id_, "label"].values[0]
-        else:
-            response = self.model.chat.completions.create(
-                    model="gpt-4",
-                    messages=[
-                        # {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    max_tokens=100,
-                    temperature=0.2,
-                )
-            return response.choices[0].message.content
+        if labels:
+            if id_ in labels["id"].to_list():
+                return labels.loc[labels["id"] == id_, "label"].values[0]
+        response = self.model.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    # {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=100,
+                temperature=0.2,
+            )
+        return response.choices[0].message.content
 
 
     def get_llama_label(self, row):

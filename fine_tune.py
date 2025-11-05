@@ -10,7 +10,7 @@ import pandas as pd
 from torch import nn
 
 class BertFineTuner:
-    def __init__(self, model_name: Optional[str], training_data: Optional[pd.DataFrame], test_data: Optional[pd.DataFrame],weight_decay: Optional[None], learning_rate=2e-5, dropout=0.2):
+    def __init__(self, model_name: Optional[str], training_data: Optional[pd.DataFrame], test_data: Optional[pd.DataFrame], learning_rate=2e-5, dropout=0.2):
         self.base_model = model_name
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -20,7 +20,7 @@ class BertFineTuner:
         self.trainer = None
         self.run_clf = False
         self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
+        self.weight_decay = None
         if dropout:
             model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
             model.config.hidden_dropout_prob = dropout
@@ -77,6 +77,7 @@ class BertFineTuner:
 
         return tokenized_data
 
+    @staticmethod
     def compute_metrics(pred):
         labels = pred.label_ids
         preds = pred.predictions.argmax(-1)
@@ -102,7 +103,7 @@ class BertFineTuner:
         # Define training arguments
         training_args = TrainingArguments(
             output_dir="results",
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",  # "epoch", "steps", or EvaluationStrategy.EPOCH
             save_strategy="epoch",
             metric_for_best_model="eval_accuracy",
             per_device_train_batch_size=32,
@@ -111,7 +112,6 @@ class BertFineTuner:
             learning_rate=self.learning_rate,
             weight_decay=self.weight_decay,
             save_total_limit=2,
-            save_steps=10,
             logging_steps=10,
             push_to_hub=False,
             logging_dir="./logs",
@@ -210,9 +210,21 @@ class MyTrainer(Trainer):
             callbacks: Optional[List[Any]] = None,
             optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
             preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None):
-        super().__init__(model, args, data_collator, train_dataset, eval_dataset, tokenizer, model_init, compute_metrics, callbacks, optimizers, preprocess_logits_for_metrics)
+        super().__init__(
+            model=model,
+            args=args,
+            data_collator=data_collator,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            model_init=model_init,
+            compute_metrics=compute_metrics,
+            callbacks=callbacks,
+            optimizers=optimizers,
+            preprocess_logits_for_metrics=preprocess_logits_for_metrics
+        )
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         labels = inputs.pop("labels")
 
         # forward pass

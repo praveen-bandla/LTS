@@ -17,8 +17,9 @@ This repository contains the code used in the paper:
 
 ## 📦 Requirements
 
-Experiments were conducted using **Python 3.12.7**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
+Experiments were conducted using **Python 3.11.2**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
 
+Before running the experiments, you need to set your OpenAI key on labeling.py (line 116)
 
 ---
 
@@ -78,7 +79,7 @@ https://drive.google.com/drive/folders/1UO4OYjBmvgKcFz71YeB1kefXqQhMvXGA?usp=sha
 python main_cluster.py \
   -sample_size 200 \
   -filename "data_use_cases/data_leather" \
-  -val_path "data/leather_validation.csv" \
+  -val_path "data_use_cases/leather_validation.csv" \
   -balance False \
   -sampling "thompson" \
   -filter_label True \
