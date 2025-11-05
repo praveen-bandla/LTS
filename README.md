@@ -18,7 +18,7 @@ This repository contains the code used in the paper:
 
 ## 📦 Requirements
 
-Experiments were conducted using **Python 3.12.7**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
+Experiments were conducted using **Python 3.11.2**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
 
 
 ---
