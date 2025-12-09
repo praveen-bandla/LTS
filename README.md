@@ -3,7 +3,7 @@
 This repository contains the code used in the paper:
 
 > **"A Cost-Effective LLM-based Approach to Identify Wildlife Trafficking in Online Marketplaces"**
-> Proceedings of the ACM on Management of Data, Volume 3, Issue 3. Article No.: 119, Pages 1 - 23. https://doi.org/10.1145/3725256
+> Proceedings of the ACM on Management of Data, Volume 3, Issue 3. Article No.: 119, Pages 1 - 23.  
 > https://dl.acm.org/doi/10.1145/3725256
 > https://arxiv.org/html/2504.21211v1
 
