@@ -21,7 +21,7 @@ This repository contains the code used in the paper:
 
 Experiments were conducted using **Python 3.11.2**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
 
-Before running the experiments, you need to set your OpenAI key on labeling.py (line 116)
+Before running GPT-based labeling, you need to set your OpenAI key via a `.env` file (see Setup below). **Do not hard-code keys in the repo**.
 
 ---
 
@@ -42,6 +42,34 @@ venv\Scripts\activate     # For Windows
 pip install -r requirements.txt
 ```
 
+### 3. Configure OpenAI key (for `-labeling gpt`)
+
+Create a file named `.env` in the repo root and add:
+
+```bash
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+```
+
+Notes:
+- `.env` is ignored by git via `.gitignore`.
+- The code loads `.env` centrally in `config.py`, and `labeling.py` authenticates using that.
+
+---
+
+
+### Required columns
+
+Training CSV (the `-filename` CSV) must include:
+- `id` (unique identifier per row)
+- `title` (text used for preprocessing/clustering/labeling)
+- Optional: `description` (if present, it will be concatenated with `title` during preprocessing)
+
+Validation CSV (the `-val_path` CSV) must include:
+- `title`
+- `label` (0/1)
+
+---
+
 🧪 Use Cases & Reproducibility
 To reproduce experiments from the paper, run main_cluster.py with the appropriate flags:
 
@@ -53,6 +81,8 @@ https://drive.google.com/drive/folders/1UO4OYjBmvgKcFz71YeB1kefXqQhMvXGA?usp=sha
 - -sample_size: Number of samples per iteration.
 
 - -filename: Path to the dataset CSV file. Must contain a text column named 'title'.
+
+  Note: pass the *base path without* the `.csv` extension (the code reads `"<filename>.csv"` and writes `"<filename>_lda.csv"`).
 
 - -val_path: Path to the validation dataset.
 
