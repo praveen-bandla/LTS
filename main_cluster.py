@@ -12,6 +12,7 @@ nltk.download('punkt')
 
 import os
 from LDA import LDATopicModel
+from config import RUN_CONFIG, LABEL_CONFIG
 
 def main():
     parser = argparse.ArgumentParser(prog="Sampling fine-tuning", description='Perform Sampling and fine tune')
@@ -46,18 +47,18 @@ def main():
     args = parser.parse_args()
 
     # cluster = args.cluster
-    sampling = args.sampling
-    sample_size = args.sample_size
-    filter_label = args.filter_label
-    balance = args.balance
-    model_finetune = args.model_finetune
-    labeling = args.labeling
-    baseline = args.baseline
-    filename = args.filename
-    model = args.model
-    metric = args.metric
-    validation_path = args.val_path
-    cluster_size = args.cluster_size
+    sampling = args.sampling if args.sampling is not None else RUN_CONFIG.sampling
+    sample_size = args.sample_size if args.sample_size is not None else RUN_CONFIG.sample_size
+    filter_label = args.filter_label if args.filter_label is not None else RUN_CONFIG.filter_label
+    balance = args.balance if args.balance is not None else RUN_CONFIG.balance
+    model_finetune = args.model_finetune if args.model_finetune is not None else RUN_CONFIG.model_finetune
+    labeling = args.labeling if args.labeling is not None else RUN_CONFIG.labeling
+    baseline = args.baseline if args.baseline is not None else RUN_CONFIG.baseline
+    filename = args.filename if args.filename is not None else RUN_CONFIG.filename
+    model = args.model if args.model is not None else RUN_CONFIG.model
+    metric = args.metric if args.metric is not None else RUN_CONFIG.metric
+    validation_path = args.val_path if args.val_path is not None else RUN_CONFIG.val_path
+    cluster_size = args.cluster_size if args.cluster_size is not None else RUN_CONFIG.cluster_size
 
 
     preprocessor = TextPreprocessor()
@@ -80,7 +81,7 @@ def main():
         print("Creating LDA")
         data = pd.read_csv(filename+".csv")
         data = preprocessor.preprocess_df(data)
-        lda_topic_model = LDATopicModel(num_topics=cluster_size)
+        lda_topic_model = LDATopicModel(num_topics=int(cluster_size))
         topics = lda_topic_model.fit_transform(data['clean_title'].to_list())
         data["label_cluster"] = topics
         n_cluster = data['label_cluster'].value_counts().count()
@@ -119,7 +120,7 @@ def main():
             print("df for inference created")
             df["answer"] = df.apply(lambda x: labeler.predict_animal_product(x), axis=1)
             df["answer"] = df["answer"].str.strip()
-            df["label"] = np.where(df["answer"] == 'relevant animal', 1, 0)
+            df["label"] = np.where(df["answer"] == LABEL_CONFIG.positive_text, LABEL_CONFIG.positive_value, LABEL_CONFIG.negative_value)
             if os.path.exists(f"{filename}_data_labeled.csv"):
                 train_data = pd.read_csv(f"{filename}_data_labeled.csv")
                 train_data = pd.concat([train_data, df])

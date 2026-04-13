@@ -2,6 +2,7 @@ import pandas as pd
 from pprint import pprint
 import torch
 import os
+from pathlib import Path
 
 from transformers import (
     AutoModelForCausalLM,
@@ -10,11 +11,14 @@ from transformers import (
 from openai import OpenAI
 import pandas as pd
 
+from config import OPENAI_API_KEY_ENV_VAR, OPENAI_CONFIG, PROMPT_CONFIG
+
 
 class Labeling:
     def __init__(self, label_model= "llama"):
         self.label_model = label_model
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self._gpt_prompt_template: str | None = None
 
     def generate_prompt(self, title):
         if self.label_model == "llama":
@@ -32,79 +36,18 @@ class Labeling:
                 """
 
     def generate_prompt_gpt(self, title):
-        return f'''You are labeling tool to create labels for a classification task .
-                             I will provide text data from an advertisement of a product.
-                             The product should be classified in two labels:
-                             Label 1: relevant animal - if the product is from any of those 3 animals: Shark, Ray or Chimaeras. It should be from a real animal. Not an image or plastic for example.
-                             Label 2: not a relevant animal - if the product is from any other animal that is not Shark, Ray, or Chimaeras, or if the product is 100% synthetic (vegan).
-                             For products such as teeth, if it's mentioned that is only one tooth, you can label it as not a relevant animal. I am only interested in more than one tooth. Also if mentions it's a fossil, we are not interested. you can label it as not a relevant animal.
-                             Return only one of the two labels: relevant animal or not a relevant animal, no explanation is necessary.
-                             Exemple:
-                             1. Advertisement: Great White Shark Embroidered Patch Iron on Patch For Clothes
-                             Label: not a relevant animal
+        if not self._gpt_prompt_template:
+            raise ValueError("GPT prompt template not loaded. Did you call set_model()?")
+        return self._gpt_prompt_template.format(title=title)
 
-                             The product in example 1 is a piece of clothing with an animal embroidered. The product is not MADE by any animal product.
+    def generate_llama_prompt(self) -> str:
+        return self._read_prompt_file(PROMPT_CONFIG.llama_instruction_path)
 
-                             2. Advertisement: (sj480-50) 6" White Tip Reef SHARK jaw love sharks jaws teeth Triaenodon obesus
-                             Label: relevant animal
-
-                             The product in example 2 is selling a shark jaw. 100% animal product in this case.
-
-                             3. Advertisement: Wholesale Group - 20 Perfect 5/8" Modern Tiger Shark Teeth
-                             Label: relevant animal
-
-                             In example 3 we have a set of 20 teeth. In this case is True.
-
-                             4. Advertisement: Mario Buccellati, a Rare and Exceptional Italian Silver Goat For Sale at 1stDibs
-                             Label: not a relevant animal
-
-                             This example 4 is also not an animal product. The goat in the ad is made out of silver and it's not the animal we are interested.
-
-                             5. Advertisement: HUGE SHARK TOOTH FOSSIL 3&1/4" GREAT Serrations Upper Principal
-                             Label: not a relevant animal
-
-                             This is a product from a shark, but is not an animal product because it's only one tooth and it's a fossil.
-
-                             6. Advertisement: {title}
-                             Label:
-
-                             '''
-
-    def generate_llama_prompt(self):
-        f'''You are labeling tool to create labels for a classification task .
-                             I will provide text data from an advertisement of a product.
-                             The product should be classified in two labels:
-                             relevant animal - if the product is from any of those 3 animals: Shark, Ray or Chimaeras. It should be from a real animal. Not an image or plastic for example.
-                             not a relevant animal - if the product is from any other animal that is not Shark, Ray, or Chimaeras, or if the product is 100% synthetic (vegan).
-                             For products such as teeth, if it's mentioned that is only one tooth, you can label it as not a relevant animal. I am only interested in more than one tooth. Also if mentions it's a fossil, we are not interested. you can label it as not a relevant animal.
-                             Return only one of the two labels, no explanation is necessary.
-                             Exemple:
-                             1. Advertisement: Great White Shark Embroidered Patch Iron on Patch For Clothes
-                             Label: not a relevant animal
-
-                             The product in example 1 is a piece of clothing with an animal embroidered. The product is not MADE by any animal product.
-
-                             2. Advertisement: (sj480-50) 6" White Tip Reef SHARK jaw love sharks jaws teeth Triaenodon obesus
-                             Label: relevant animal
-
-                             The product in example 2 is selling a shark jaw. 100% animal product in this case.
-
-                             3. Advertisement: Wholesale Group - 20 Perfect 5/8" Modern Tiger Shark Teeth
-                             Label: relevant animal
-
-                             In example 3 we have a set of 20 teeth. In this case is True.
-
-                             4. Advertisement: Mario Buccellati, a Rare and Exceptional Italian Silver Goat For Sale at 1stDibs
-                             Label: not a relevant animal
-
-                             This example 4 is also not an animal product. The goat in the ad is made out of silver and it's not the animal we are interested.
-
-                             5. Advertisement: HUGE SHARK TOOTH FOSSIL 3&1/4" GREAT Serrations Upper Principal
-                             Label: not a relevant animal
-
-                             This is a product from a shark, but is not an animal product because it's only one tooth and it's a fossil.
-                             6. Advertisement:
-                             '''
+    @staticmethod
+    def _read_prompt_file(path: Path) -> str:
+        if not path.exists():
+            raise FileNotFoundError(f"Prompt file not found: {path}")
+        return path.read_text(encoding="utf-8").strip() + "\n"
 
     def set_model(self):
         if self.label_model == "llama":
@@ -114,7 +57,12 @@ class Labeling:
             self.prompt_llama = self.generate_llama_prompt()
             print("model Loaded")
         elif self.label_model == "gpt":
-            self.model = OpenAI(api_key="YOUR_OPENAI_API_KEY")
+            if not OPENAI_CONFIG.api_key:
+                raise ValueError(
+                    f"Missing OpenAI API key. Set {OPENAI_API_KEY_ENV_VAR} in .env (see .env file)."
+                )
+            self.model = OpenAI(api_key=OPENAI_CONFIG.api_key)
+            self._gpt_prompt_template = self._read_prompt_file(PROMPT_CONFIG.gpt_prompt_path)
         elif self.label_model =="file":
             self.model = None
 
@@ -165,13 +113,13 @@ class Labeling:
             if id_ in labels["id"].to_list():
                 return labels.loc[labels["id"] == id_, "label"].values[0]
         response = self.model.chat.completions.create(
-                model="gpt-4o-mini",
+                model=OPENAI_CONFIG.model,
                 messages=[
                     # {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=100,
-                temperature=0.2,
+                max_tokens=OPENAI_CONFIG.max_tokens,
+                temperature=OPENAI_CONFIG.temperature,
             )
         return response.choices[0].message.content
 
