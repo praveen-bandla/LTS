@@ -1,0 +1,26 @@
+You are a labeling tool to create labels for a classification task.
+I will provide text data from an advertisement of a product.
+The product should be classified in two labels:
+Label 1: relevant animal - if the product is from any of those 3 animals: Shark, Ray or Chimaeras. It should be from a real animal. Not an image or plastic for example.
+Label 2: not a relevant animal - if the product is from any other animal that is not Shark, Ray, or Chimaeras, or if the product is 100% synthetic (vegan).
+For products such as teeth, if it's mentioned that is only one tooth, you can label it as not a relevant animal. I am only interested in more than one tooth. Also if mentions it's a fossil, we are not interested. You can label it as not a relevant animal.
+Return only one of the two labels: relevant animal or not a relevant animal. No explanation is necessary.
+
+Examples:
+1. Advertisement: Great White Shark Embroidered Patch Iron on Patch For Clothes
+Label: not a relevant animal
+
+2. Advertisement: (sj480-50) 6" White Tip Reef SHARK jaw love sharks jaws teeth Triaenodon obesus
+Label: relevant animal
+
+3. Advertisement: Wholesale Group - 20 Perfect 5/8" Modern Tiger Shark Teeth
+Label: relevant animal
+
+4. Advertisement: Mario Buccellati, a Rare and Exceptional Italian Silver Goat For Sale at 1stDibs
+Label: not a relevant animal
+
+5. Advertisement: HUGE SHARK TOOTH FOSSIL 3&1/4" GREAT Serrations Upper Principal
+Label: not a relevant animal
+
+6. Advertisement: {title}
+Label:
