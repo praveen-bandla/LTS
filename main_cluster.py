@@ -12,7 +12,15 @@ nltk.download('punkt')
 
 import os
 from LDA import LDATopicModel
-from config import RUN_CONFIG, LABEL_CONFIG
+from config import RUN_CONFIG
+
+import adapters  # registers built-in adapters
+from data_adapter import AdapterRegistry
+
+
+def _truncate_string(text: str, max_length: int = 2000) -> str:
+    """Truncate long strings to keep prompts within reasonable limits."""
+    return text[:max_length] + "..." if len(text) > max_length else text
 
 def main():
     parser = argparse.ArgumentParser(prog="Sampling fine-tuning", description='Perform Sampling and fine tune')
@@ -43,6 +51,12 @@ def main():
     parser.add_argument('-cluster_size', type=str, required=False,
                         help="path to validation")
 
+    # Adapter-driven mode
+    parser.add_argument('-dataset', type=str, required=False,
+                        help="Adapter key (e.g., wildlife)")
+    parser.add_argument('-config', type=str, required=False,
+                        help="Path to adapter YAML (defaults to adapters/configs/<dataset>.yaml)")
+
 
     args = parser.parse_args()
 
@@ -63,37 +77,79 @@ def main():
 
     preprocessor = TextPreprocessor()
 
+    # Adapter-driven configuration (preferred)
+    adapter = None
+    paths = None
+    if args.dataset:
+        config_path = args.config or f"adapters/configs/{args.dataset}.yaml"
+        adapter = AdapterRegistry.create(args.dataset, config_path)
+        paths = adapter.get_paths()
 
-    validation = pd.read_csv(validation_path)
-    validation["training_text"] = validation["title"]
+    if adapter is not None:
+        id_col = adapter.get_id_col()
+        input_col = adapter.get_input_text_col()
+        desc_col = adapter.get_description_col()
+        clean_col = adapter.get_clean_text_col()
+        cluster_col = adapter.get_cluster_col()
+        pred_col = adapter.get_predicted_col()
+        target_col = adapter.get_target_col()
+        answer_col = adapter.get_answer_col()
 
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("data", exist_ok=True)
-    os.makedirs("log", exist_ok=True)
-    os.makedirs("results", exist_ok=True)
+        validation = adapter.prepare_validation_df(adapter.load_validation_df())
+        pool_df = adapter.prepare_pool_df(adapter.load_pool_df())
 
-    try:
-        data = pd.read_csv(filename+"_lda.csv")
-        n_cluster = data['label_cluster'].value_counts().count()
-        print("using data saved on disk")
-        # print(sample.head(1))
-    except Exception:
-        print("Creating LDA")
-        data = pd.read_csv(filename+".csv")
-        data = preprocessor.preprocess_df(data)
-        lda_topic_model = LDATopicModel(num_topics=int(cluster_size))
-        topics = lda_topic_model.fit_transform(data['clean_title'].to_list())
-        data["label_cluster"] = topics
-        n_cluster = data['label_cluster'].value_counts().count()
-        print(n_cluster)
-        data.to_csv(filename + "_lda.csv", index=False)
-        print("LDA created")
+        # Ensure standard directories exist under the artifact namespace.
+        _ = paths.models_dir
+        _ = paths.logs_dir
+        _ = paths.results_dir
+
+        try:
+            data = pd.read_csv(paths.lda_cache_path)
+            n_cluster = int(data[cluster_col].nunique())
+            print("using data saved on disk")
+        except Exception:
+            print("Creating LDA")
+            data = preprocessor.preprocess_df(pool_df, text_col=input_col, desc_col=desc_col, output_col=clean_col)
+            lda_topic_model = LDATopicModel(num_topics=int(cluster_size))
+            topics = lda_topic_model.fit_transform(data[clean_col].to_list())
+            data[cluster_col] = topics
+            n_cluster = int(data[cluster_col].nunique())
+            data.to_csv(paths.lda_cache_path, index=False)
+            print("LDA created")
+    else:
+        # Legacy fallback path (kept for backwards compatibility)
+        validation = pd.read_csv(validation_path)
+        validation["training_text"] = validation["title"]
+
+        os.makedirs("models", exist_ok=True)
+        os.makedirs("data", exist_ok=True)
+        os.makedirs("log", exist_ok=True)
+        os.makedirs("results", exist_ok=True)
+
+        try:
+            data = pd.read_csv(filename+"_lda.csv")
+            n_cluster = data['label_cluster'].value_counts().count()
+            print("using data saved on disk")
+        except Exception:
+            print("Creating LDA")
+            data = pd.read_csv(filename+".csv")
+            data = preprocessor.preprocess_df(data)
+            lda_topic_model = LDATopicModel(num_topics=int(cluster_size))
+            topics = lda_topic_model.fit_transform(data['clean_title'].to_list())
+            data["label_cluster"] = topics
+            n_cluster = data['label_cluster'].value_counts().count()
+            print(n_cluster)
+            data.to_csv(filename + "_lda.csv", index=False)
+            print("LDA created")
 
 
     baseline = baseline
 
     if model == "text":
-        trainer = BertFineTuner(model_finetune, None, validation)
+        if adapter is not None:
+            trainer = adapter.build_trainer(validation)
+        else:
+            trainer = BertFineTuner(model_finetune, None, validation)
     else:
         raise ValueError("Currently only text model is supported")
 
@@ -101,58 +157,100 @@ def main():
     labeler.set_model()
 
     if sampling == "thompson":
-        ## thompson sampler
-        sampler = ThompsonSampler(n_cluster)
+        if adapter is not None:
+            sampler = ThompsonSampler(
+                n_cluster,
+                id_col=id_col,
+                cluster_col=cluster_col,
+                predicted_col=pred_col,
+                selected_ids_path=paths.selected_ids_path,
+                wins_path=paths.wins_path,
+                losses_path=paths.losses_path,
+            )
+        else:
+            sampler = ThompsonSampler(n_cluster)
     elif sampling == "random":
-        sampler = RandomSampler(n_cluster)
+        if adapter is not None:
+            sampler = RandomSampler(
+                n_cluster,
+                id_col=id_col,
+                cluster_col=cluster_col,
+                predicted_col=pred_col,
+                selected_ids_path=paths.selected_ids_path,
+            )
+        else:
+            sampler = RandomSampler(n_cluster)
     else:
         raise ValueError("Choose one of thompson or random")
-
-
-    labeler = Labeling(label_model=labeling)
-    labeler.set_model()
 
     for i in range(10):
         sample_data, chosen_bandit = sampler.get_sample_data(data, sample_size, filter_label, trainer)
         ## Generate labels
         if labeling != "file":
-            df = labeler.generate_inference_data(sample_data, 'clean_title')
-            print("df for inference created")
-            df["answer"] = df.apply(lambda x: labeler.predict_animal_product(x), axis=1)
-            df["answer"] = df["answer"].str.strip()
-            df["label"] = np.where(df["answer"] == LABEL_CONFIG.positive_text, LABEL_CONFIG.positive_value, LABEL_CONFIG.negative_value)
-            if os.path.exists(f"{filename}_data_labeled.csv"):
-                train_data = pd.read_csv(f"{filename}_data_labeled.csv")
-                train_data = pd.concat([train_data, df])
-                train_data.to_csv(f"{filename}_data_labeled.csv", index=False)
+            if adapter is not None:
+                df = sample_data.copy()
+                df[answer_col] = df.apply(
+                    lambda x: labeler.predict(
+                        adapter.format_prompt(_truncate_string(str(x[clean_col]))),
+                        record_id=str(x[id_col]),
+                    ),
+                    axis=1,
+                )
+                df[answer_col] = df[answer_col].astype(str).str.strip()
+                df[target_col] = df[answer_col].apply(adapter.parse_model_output)
+
+                if paths.labeled_data_path.exists():
+                    train_data = pd.read_csv(paths.labeled_data_path)
+                    train_data = pd.concat([train_data, df])
+                    train_data.to_csv(paths.labeled_data_path, index=False)
+                else:
+                    df.to_csv(paths.labeled_data_path, index=False)
             else:
-                df.to_csv(f"{filename}_data_labeled.csv", index=False)
+                df = labeler.generate_inference_data(sample_data, 'clean_title')
+                print("df for inference created")
+                df["answer"] = df.apply(lambda x: labeler.predict_animal_product(x), axis=1)
+                df["answer"] = df["answer"].str.strip()
+                from config import LABEL_CONFIG
+                df["label"] = np.where(df["answer"] == LABEL_CONFIG.positive_text, LABEL_CONFIG.positive_value, LABEL_CONFIG.negative_value)
+                if os.path.exists(f"{filename}_data_labeled.csv"):
+                    train_data = pd.read_csv(f"{filename}_data_labeled.csv")
+                    train_data = pd.concat([train_data, df])
+                    train_data.to_csv(f"{filename}_data_labeled.csv", index=False)
+                else:
+                    df.to_csv(f"{filename}_data_labeled.csv", index=False)
         else:
             df = sample_data
-        print(df["label"].value_counts())
+        label_counts_col = adapter.get_target_col() if adapter is not None else "label"
+        print(df[label_counts_col].value_counts())
         # print(df["answer"].value_counts())
 
         # ADD POSITIVE DATA IF AVAILABLE
 
-        if os.path.exists('positive_data.csv'):
-            pos = pd.read_csv('positive_data.csv')
-            df = pd.concat([df, pos]).sample(frac=1)
-            print(f"adding positive data: {df['label'].value_counts()}")
+        if adapter is not None:
+            if paths.positive_data_path.exists():
+                pos = pd.read_csv(paths.positive_data_path)
+                df = pd.concat([df, pos]).sample(frac=1)
+                print(f"adding positive data: {df[target_col].value_counts()}")
+        else:
+            if os.path.exists('positive_data.csv'):
+                pos = pd.read_csv('positive_data.csv')
+                df = pd.concat([df, pos]).sample(frac=1)
+                print(f"adding positive data: {df['label'].value_counts()}")
         if balance:
-            if len(df[df["label"]==1]) > 0:
-                unbalanced = len(df[df["label"]==0]) / len(df[df["label"]==1]) > 2
+            if len(df[df[label_counts_col]==1]) > 0:
+                unbalanced = len(df[df[label_counts_col]==0]) / len(df[df[label_counts_col]==1]) > 2
                 if unbalanced:
-                    label_counts = df["label"].value_counts()
+                    label_counts = df[label_counts_col].value_counts()
                     # Determine the number of samples to keep for each label
                     min_count = min(label_counts)
                     balanced_df = pd.concat([
-                        df[df["label"] == 0].sample(min_count*2),
-                        df[df["label"] == 1].sample(min_count)
+                        df[df[label_counts_col] == 0].sample(min_count*2),
+                        df[df[label_counts_col] == 1].sample(min_count)
                     ])
 
                     # Shuffle the rows
                     df = balanced_df.sample(frac=1).reset_index(drop=True)
-                    print(f"Balanced data: {df.label.value_counts()}")
+                    print(f"Balanced data: {df[label_counts_col].value_counts()}")
             # else:
                 # if i == 0: # if this is the first model training
                 # unbalanced = True
@@ -162,7 +260,7 @@ def main():
         #previous model
         model_name = trainer.get_base_model()
         print(f"using model {model_name}")
-        model_results = trainer.get_last_model_acc()
+        model_results = trainer.get_last_model_metrics() if hasattr(trainer, "get_last_model_metrics") else trainer.get_last_model_acc()
         if model_results:
             baseline = model_results[model_name]
             print(f"previous model {metric} metric baseline of: {baseline}")
@@ -171,26 +269,43 @@ def main():
         print(f"Starting training")
 
         try:
-            still_unbalenced = len(df[df["label"]==0]) / len(df[df["label"]==1])  >= 2
+            still_unbalenced = len(df[df[label_counts_col]==0]) / len(df[df[label_counts_col]==1])  >= 2
         except Exception:
             still_unbalenced = True
         print(f"Unbalanced? {still_unbalenced}")
 
-        results, huggingface_trainer = trainer.train_data(df, still_unbalenced)
+        if hasattr(trainer, "train"):
+            results = trainer.train(df, still_unbalenced)
+        else:
+            results, huggingface_trainer = trainer.train_data(df, still_unbalenced)
         reward_difference = results[f"eval_{metric}"] - baseline
         if reward_difference > 0:
             print(f"Model improved with {reward_difference}")
-            model_name = f"models/fine_tunned_{i}_bandit_{chosen_bandit}"
+            if adapter is not None:
+                model_name = str(paths.models_dir / f"fine_tunned_{i}_bandit_{chosen_bandit}")
+            else:
+                model_name = f"models/fine_tunned_{i}_bandit_{chosen_bandit}"
             trainer.update_model(model_name, results[f"eval_{metric}"], save_model=True)
             # df.to_csv("llama_training_data.csv", index=False)
-            if os.path.exists(f'{filename}_training_data.csv'):
-                train_data = pd.read_csv(f'{filename}_training_data.csv')
-                df = pd.concat([train_data, df])
-            df.to_csv(f'{filename}_training_data.csv', index=False)
-            if os.path.exists('positive_data.csv'):
-                os.remove('positive_data.csv')
+            if adapter is not None:
+                if paths.training_data_path.exists():
+                    train_data = pd.read_csv(paths.training_data_path)
+                    df = pd.concat([train_data, df])
+                df.to_csv(paths.training_data_path, index=False)
+                if paths.positive_data_path.exists():
+                    os.remove(paths.positive_data_path)
+            else:
+                if os.path.exists(f'{filename}_training_data.csv'):
+                    train_data = pd.read_csv(f'{filename}_training_data.csv')
+                    df = pd.concat([train_data, df])
+                df.to_csv(f'{filename}_training_data.csv', index=False)
+                if os.path.exists('positive_data.csv'):
+                    os.remove('positive_data.csv')
             if filter_label:
-                trainer.set_clf(True)
+                if hasattr(trainer, "enable_filtering"):
+                    trainer.enable_filtering(True)
+                else:
+                    trainer.set_clf(True)
                 # data["predicted_label"] = trainer.get_inference(data)
                 # print(data["predicted_label"].value_counts())
                 # if data[data["predicted_label"]==1].empty:
@@ -201,16 +316,26 @@ def main():
             #back to initial model
             trainer.update_model(model_name, baseline, save_model=False)
             # save positive sample
-            if os.path.exists('positive_data.csv'):
-                positive = pd.read_csv("positive_data.csv")
-                df = df[df["label"]==1]
-                df = pd.concat([df, positive])
-                df = df.drop_duplicates()
-            df[df["label"]==1].to_csv("positive_data.csv", index=False)
+            if adapter is not None:
+                if paths.positive_data_path.exists():
+                    positive = pd.read_csv(paths.positive_data_path)
+                    df_pos = df[df[label_counts_col] == 1]
+                    df_pos = pd.concat([df_pos, positive]).drop_duplicates()
+                else:
+                    df_pos = df[df[label_counts_col] == 1]
+                df_pos.to_csv(paths.positive_data_path, index=False)
+            else:
+                if os.path.exists('positive_data.csv'):
+                    positive = pd.read_csv("positive_data.csv")
+                    df = df[df["label"]==1]
+                    df = pd.concat([df, positive])
+                    df = df.drop_duplicates()
+                df[df["label"]==1].to_csv("positive_data.csv", index=False)
 
 
-        if os.path.exists(f'{filename}_model_results.json'):
-            with open(f'{filename}_model_results.json', 'r') as file:
+        results_path = paths.model_results_path if adapter is not None else f"{filename}_model_results.json"
+        if os.path.exists(results_path):
+            with open(results_path, 'r') as file:
                 existing_results = json.load(file)
         else:
             existing_results = {}
@@ -221,15 +346,16 @@ def main():
             existing_results[str(chosen_bandit)] = [results]
 
         # Write the updated list to the file
-        with open(f'{filename}_model_results.json', 'w') as file:
+        with open(results_path, 'w') as file:
             json.dump(existing_results, file, indent=4)
         if sampling == "thompson":
             sampler.update(chosen_bandit, reward_difference)
 
 
-    print("Bendt with highest expected improvement:", np.argmax(sampler.wins / (sampler.wins + sampler.losses)))
-    print(sampler.wins)
-    print(sampler.losses)
+    if sampling == "thompson":
+        print("Bendt with highest expected improvement:", np.argmax(sampler.wins / (sampler.wins + sampler.losses)))
+        print(sampler.wins)
+        print(sampler.losses)
     # Save the DataFrame with cluster labels
     # umap_df.to_csv("./data/gpt_training_with_clusters.csv", index=False)
 

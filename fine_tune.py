@@ -10,13 +10,33 @@ import pandas as pd
 from torch import nn
 
 class BertFineTuner:
-    def __init__(self, model_name: Optional[str], training_data: Optional[pd.DataFrame], test_data: Optional[pd.DataFrame], learning_rate=2e-5, dropout=0.2):
+    def __init__(
+        self,
+        model_name: Optional[str],
+        training_data: Optional[pd.DataFrame],
+        test_data: Optional[pd.DataFrame],
+        text_col: str = "title",
+        label_col: str = "label",
+        output_dir: str = "results",
+        logging_dir: str = "./logs",
+        learning_rate=2e-5,
+        dropout=0.2,
+    ):
+        """BERT fine-tuner used by the sampling loop.
+
+        The adapter refactor makes `text_col` and `label_col` configurable so the
+        core pipeline does not hardcode dataset schemas.
+        """
         self.base_model = model_name
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.last_model_acc: Dict[str, str] = None
+        self.last_model_acc: Dict[str, float] | None = None
         self.training_data = training_data
         self.test_data = test_data
+        self.text_col = text_col
+        self.label_col = label_col
+        self.output_dir = output_dir
+        self.logging_dir = logging_dir
         self.trainer = None
         self.run_clf = False
         self.learning_rate = learning_rate
@@ -48,12 +68,39 @@ class BertFineTuner:
     def get_base_model(self):
         return self.base_model
 
+    # --- Adapter-facing API ---
+
+    def enable_filtering(self, enabled: bool) -> None:
+        """Adapter-facing alias for enabling sampler filtering."""
+        self.set_clf(enabled)
+
+    def is_filtering_enabled(self) -> bool:
+        """Return whether filtering is enabled."""
+        return bool(self.get_clf())
+
+    def get_last_model_metrics(self) -> Dict[str, float] | None:
+        """Adapter-facing alias for the last evaluation metrics."""
+        return self.get_last_model_acc()
+
+    def train(self, df_train: pd.DataFrame, still_unbalenced: bool) -> Dict[str, Any]:
+        """Train and return evaluation metrics."""
+        results, _ = self.train_data(df_train, still_unbalenced)
+        return results
+
+    def infer(self, df_unlabeled: pd.DataFrame) -> torch.Tensor:
+        """Run inference for filtering."""
+        return self.get_inference(df_unlabeled)
+
+    def save(self, path: str) -> None:
+        """Persist the current model to `path`."""
+        self.save_model(path)
+
     def create_dataset(self, train, test):
         def tokenize_function(element):
-            return self.tokenizer(element['title'], padding="max_length", truncation=True, max_length=512)
+            return self.tokenizer(element[self.text_col], padding="max_length", truncation=True, max_length=512)
 
-        dataset_train = Dataset.from_pandas(train[["title", "label"]])
-        dataset_val = Dataset.from_pandas(test[["title", "label"]])
+        dataset_train = Dataset.from_pandas(train[[self.text_col, self.label_col]])
+        dataset_val = Dataset.from_pandas(test[[self.text_col, self.label_col]])
 
         dataset = DatasetDict()
         dataset["train"] = dataset_train
@@ -66,9 +113,9 @@ class BertFineTuner:
 
     def create_test_dataset(self, df: pd.DataFrame) -> Dataset:
         def tokenize_function(element):
-            return self.tokenizer(element['title'], padding="max_length", truncation=True, max_length=512)
+            return self.tokenizer(element[self.text_col], padding="max_length", truncation=True, max_length=512)
 
-        test_dataset = Dataset.from_pandas(df[["title"]])
+        test_dataset = Dataset.from_pandas(df[[self.text_col]])
 
         dataset = DatasetDict()
         dataset["test"] = test_dataset
@@ -96,13 +143,13 @@ class BertFineTuner:
         }
 
     def train_data(self, df, still_unbalenced):
-        early_stopping_callback = EarlyStoppingCallback(patience=5, log_dir="./log")
+        early_stopping_callback = EarlyStoppingCallback(patience=5, log_dir=self.logging_dir)
 
         tokenized_data, data_collator = self.create_dataset(df, self.test_data)
 
         # Define training arguments
         training_args = TrainingArguments(
-            output_dir="results",
+            output_dir=self.output_dir,
             eval_strategy="epoch",  # "epoch", "steps", or EvaluationStrategy.EPOCH
             save_strategy="epoch",
             metric_for_best_model="eval_accuracy",
@@ -114,7 +161,7 @@ class BertFineTuner:
             save_total_limit=2,
             logging_steps=10,
             push_to_hub=False,
-            logging_dir="./logs",
+            logging_dir=self.logging_dir,
             load_best_model_at_end=True
         )
         if still_unbalenced:
@@ -195,6 +242,7 @@ class BertFineTuner:
         self.last_model_acc = {model_name: model_acc}
         self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
         self.base_model = model_name
+        self.model.to(self.device)
 
 
 class MyTrainer(Trainer):

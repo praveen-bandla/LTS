@@ -7,13 +7,24 @@ class TextPreprocessor:
         self.punctuation_regex = re.compile('[%s]' % re.escape(string.punctuation))
         self.weird_chars_regex = re.compile(r'[^a-zA-Z0-9\s]')
 
-    def preprocess_df(self, df):
-        df = df.dropna(subset=["title"])
-        if "description" in df.columns:
-            df["title_and_desc"] = np.where(df["description"].isnull(), df["title"], df["title"]  + ". " + df["description"])
-            df['clean_title'] = df['title_and_desc'].apply(lambda x: self.clean_text(x))
+    def preprocess_df(self, df, text_col: str = "title", desc_col: str | None = None, output_col: str = "clean_title"):
+        """Clean a text column and write the cleaned result to `output_col`.
+
+        Defaults preserve the legacy behavior:
+        - input column: `title`
+        - optional extra text: `description` (if present)
+        - output column: `clean_title`
+        """
+        if desc_col is None and "description" in df.columns:
+            desc_col = "description"
+
+        df = df.dropna(subset=[text_col])
+        if desc_col and desc_col in df.columns:
+            combined_col = "title_and_desc" if text_col == "title" and desc_col == "description" else f"{text_col}_and_desc"
+            df[combined_col] = np.where(df[desc_col].isnull(), df[text_col], df[text_col] + ". " + df[desc_col])
+            df[output_col] = df[combined_col].apply(lambda x: self.clean_text(x))
         else:
-            df['clean_title'] = df['title'].apply(lambda x: self.clean_text(x))
+            df[output_col] = df[text_col].apply(lambda x: self.clean_text(x))
         return df
 
     def clean_text(self, text):
