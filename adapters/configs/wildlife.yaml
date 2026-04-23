@@ -1,0 +1,31 @@
+# Minimal adapter config for the existing wildlife-style pipeline.
+# Paths are resolved relative to this YAML file.
+
+run_name: wildlife
+artifact_root: artifacts
+
+data:
+  pool_csv: ../../data_use_cases/shark_trophy.csv
+  validation_csv: ../../data_use_cases/validation_sharks.csv
+
+columns:
+  id: id
+  input_text: title
+  description: description
+  target: label
+  clean_text: clean_title
+  cluster: label_cluster
+  predicted: predicted_label
+  answer: answer
+  prompt: prompt
+
+prompt:
+  template_path: ../../prompts/wildlife_dataset/gpt_prompt.txt
+  positive_text: relevant animal
+  positive_value: 1
+  negative_value: 0
+
+trainer:
+  model_name: bert-base-uncased
+  # text_col defaults to columns.input_text
+  # label_col defaults to columns.target

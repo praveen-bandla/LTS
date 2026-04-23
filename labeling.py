@@ -15,10 +15,27 @@ from config import OPENAI_API_KEY_ENV_VAR, OPENAI_CONFIG, PROMPT_CONFIG
 
 
 class Labeling:
+    """Labeling engine for LLaMA / OpenAI GPT.
+
+    After the adapter refactor, this class acts as an execution engine:
+    prompt in -> raw response out. Prompt formatting and response parsing are
+    handled by the dataset adapter.
+    """
+
     def __init__(self, label_model= "llama"):
         self.label_model = label_model
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self._gpt_prompt_template: str | None = None
+
+    def predict(self, prompt: str, record_id: str | None = None) -> str:
+        """Return the raw model response for a fully-formed prompt string."""
+        if self.label_model == "llama":
+            return self._predict_llama(prompt)
+        elif self.label_model == "gpt":
+            return self._predict_gpt(prompt, record_id=record_id)
+        elif self.label_model == "file":
+            return self.get_file_label({"id": record_id, "text": prompt})
+        raise ValueError("No model selected")
 
     def generate_prompt(self, title):
         if self.label_model == "llama":
@@ -102,31 +119,28 @@ class Labeling:
 
 
 
-    def get_gpt_label(self, row):
-        if os.path.exists("labaled_by_gpt.csv"):
-            labels =  pd.read_csv("labaled_by_gpt.csv")
-        else:
-            labels = None
-        id_ = row["id"]
-        prompt = row["text"]
-        if labels:
-            if id_ in labels["id"].to_list():
-                return labels.loc[labels["id"] == id_, "label"].values[0]
+    def _predict_gpt(self, prompt: str, record_id: str | None = None) -> str:
+        labels = pd.read_csv("labaled_by_gpt.csv") if os.path.exists("labaled_by_gpt.csv") else None
+        if labels is not None and record_id is not None:
+            if record_id in labels["id"].astype(str).to_list():
+                return labels.loc[labels["id"].astype(str) == str(record_id), "label"].values[0]
+
         response = self.model.chat.completions.create(
-                model=OPENAI_CONFIG.model,
-                messages=[
-                    # {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=OPENAI_CONFIG.max_tokens,
-                temperature=OPENAI_CONFIG.temperature,
-            )
+            model=OPENAI_CONFIG.model,
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=OPENAI_CONFIG.max_tokens,
+            temperature=OPENAI_CONFIG.temperature,
+        )
         return response.choices[0].message.content
 
+    def get_gpt_label(self, row):
+        return self._predict_gpt(row["text"], record_id=str(row.get("id")))
 
-    def get_llama_label(self, row):
-        text = row["text"]
-        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
+
+    def _predict_llama(self, prompt: str) -> str:
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         inputs_length = len(inputs["input_ids"][0])
         with torch.inference_mode():
             outputs = self.model.generate(**inputs, max_new_tokens=256, temperature=0.0001)
@@ -141,6 +155,9 @@ class Labeling:
                     # Handle any other exception
                     answer = 'not a relevant animal'
         return answer
+
+    def get_llama_label(self, row):
+        return self._predict_llama(row["text"])
 
 
     def get_file_label(self, row):
