@@ -40,7 +40,7 @@ class BertFineTuner:
         self.trainer = None
         self.run_clf = False
         self.learning_rate = learning_rate
-        self.weight_decay = None
+        self.weight_decay = 0.00 # previously None, checking if this solves error 4/15/26 RMG
         if dropout:
             model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
             model.config.hidden_dropout_prob = dropout
