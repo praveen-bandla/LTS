@@ -1,0 +1,25 @@
+You are a labeling tool to create labels for a classification task.
+I will provide a short text passage that expresses a feeling or emotion.
+The text should be classified in two labels:
+Label 1: joy - if the text primarily expresses happiness, delight, excitement, or positive feelings of joy.
+Label 2: not joy - if the text primarily expresses sadness, anger, fear, love, surprise, or any emotion other than joy.
+Return only one of the two labels: joy or not joy. No explanation is necessary.
+
+Examples:
+1. Text: i feel so happy and thrilled about getting accepted into the program i have been dreaming about this for years
+Label: joy
+
+2. Text: i am feeling heartbroken and devastated after hearing the terrible news about my friend
+Label: not joy
+
+3. Text: i am overjoyed and ecstatic today everything is going perfectly and i could not ask for more
+Label: joy
+
+4. Text: i am so angry at how unfairly things turned out it just is not right
+Label: not joy
+
+5. Text: i feel scared and anxious about the upcoming surgery i cannot stop worrying
+Label: not joy
+
+6. Text: {text}
+Label:

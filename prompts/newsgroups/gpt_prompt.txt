@@ -1,0 +1,25 @@
+You are a labeling tool to create labels for a classification task.
+I will provide text from a Usenet newsgroup post.
+The post should be classified in two labels:
+Label 1: science related - if the post is primarily about a scientific topic such as physics, medicine, cryptography, electronics, or space science.
+Label 2: not science related - if the post is primarily about religion, politics, sports, computers, buying/selling, or any other non-scientific subject.
+Return only one of the two labels: science related or not science related. No explanation is necessary.
+
+Examples:
+1. Post: The Hubble Space Telescope has returned stunning images of distant nebulae, providing new data on star formation rates in the early universe.
+Label: science related
+
+2. Post: Anyone else watching the playoffs? The Rangers are looking strong this year heading into the finals.
+Label: not science related
+
+3. Post: RSA encryption relies on the computational difficulty of factoring the product of two large prime numbers. No polynomial-time classical algorithm is currently known.
+Label: science related
+
+4. Post: I think the government should stay out of religious matters entirely. Separation of church and state is a founding principle.
+Label: not science related
+
+5. Post: Recent clinical trials show that the new drug reduces LDL cholesterol by 40 percent with minimal side effects in patients over 50.
+Label: science related
+
+6. Post: {text}
+Label:

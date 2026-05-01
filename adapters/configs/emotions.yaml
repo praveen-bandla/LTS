@@ -1,0 +1,25 @@
+run_name: emotions
+artifact_root: artifacts
+
+data:
+  pool_csv: ../../data_use_cases/emotions_pool.csv
+  validation_csv: ../../data_use_cases/emotions_validation.csv
+
+columns:
+  id: id
+  input_text: text
+  target: label
+  clean_text: clean_text
+  cluster: label_cluster
+  predicted: predicted_label
+  answer: answer
+  prompt: prompt
+
+prompt:
+  template_path: ../../prompts/emotions/gpt_prompt.txt
+  positive_text: joy
+  positive_value: 1
+  negative_value: 0
+
+trainer:
+  model_name: bert-base-uncased

@@ -1,0 +1,26 @@
+run_name: reuters
+artifact_root: artifacts
+
+data:
+  pool_csv: ../../data_use_cases/reuters_pool.csv
+  validation_csv: ../../data_use_cases/reuters_validation.csv
+
+columns:
+  id: id
+  input_text: title
+  description: text
+  target: label
+  clean_text: clean_title
+  cluster: label_cluster
+  predicted: predicted_label
+  answer: answer
+  prompt: prompt
+
+prompt:
+  template_path: ../../prompts/reuters/gpt_prompt.txt
+  positive_text: earnings report
+  positive_value: 1
+  negative_value: 0
+
+trainer:
+  model_name: bert-base-uncased

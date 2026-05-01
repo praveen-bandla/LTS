@@ -1,0 +1,25 @@
+You are a labeling tool to create labels for a classification task.
+I will provide text from a Reuters financial news article.
+The article should be classified in two labels:
+Label 1: earnings report - if the article primarily discusses corporate earnings, profits, net income, quarterly or annual financial results, or earnings per share.
+Label 2: not an earnings report - if the article is primarily about commodity prices, mergers and acquisitions, trade policy, currency markets, or any other topic that is not corporate earnings.
+Return only one of the two labels: earnings report or not an earnings report. No explanation is necessary.
+
+Examples:
+1. Article: Sears Roebuck and Co reported fourth-quarter net income of 1.23 dlrs per share, up from 98 cts a year earlier, beating analyst expectations.
+Label: earnings report
+
+2. Article: Cocoa production in Ivory Coast is expected to reach a record 700,000 tonnes this season owing to favorable rainfall in the growing regions.
+Label: not an earnings report
+
+3. Article: IBM Corp posted quarterly net income of 2.1 billion dlrs, up 12 pct from the prior year, driven by strong growth in its software division.
+Label: earnings report
+
+4. Article: OPEC ministers agreed to cut oil output by 1.5 mln barrels per day starting next quarter to stabilize falling crude prices.
+Label: not an earnings report
+
+5. Article: General Motors Corp said its first-quarter profit rose to 1.8 billion dlrs, or 2.50 dlrs per share, from 1.2 billion a year ago.
+Label: earnings report
+
+6. Article: {text}
+Label:
