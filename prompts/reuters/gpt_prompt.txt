@@ -1,25 +1,35 @@
 You are a labeling tool to create labels for a classification task.
 I will provide text from a Reuters financial news article.
-The article should be classified in two labels:
-Label 1: earnings report - if the article primarily discusses corporate earnings, profits, net income, quarterly or annual financial results, or earnings per share.
-Label 2: not an earnings report - if the article is primarily about commodity prices, mergers and acquisitions, trade policy, currency markets, or any other topic that is not corporate earnings.
-Return only one of the two labels: earnings report or not an earnings report. No explanation is necessary.
+Classify the article into exactly one of these nine topic categories:
+  earn, acq, money-fx, grain, crude, trade, interest, wheat, other
+
+  earn      — corporate earnings, profits, net income, financial results
+  acq       — mergers, acquisitions, takeovers, buyouts
+  money-fx  — foreign exchange rates, currency markets
+  grain     — grain markets (corn, soy, oats, barley, sorghum)
+  crude     — crude oil and petroleum markets
+  trade     — international trade, imports, exports, trade policy
+  interest  — interest rates, central bank policy, monetary policy
+  wheat     — wheat production, prices, and markets
+  other     — any topic not covered by the above eight categories
+
+Return only the single category name that best fits the article. No explanation is necessary.
 
 Examples:
-1. Article: Sears Roebuck and Co reported fourth-quarter net income of 1.23 dlrs per share, up from 98 cts a year earlier, beating analyst expectations.
-Label: earnings report
+1. Article: Sears Roebuck and Co reported fourth-quarter net income of 1.23 dlrs per share, up from 98 cts a year earlier.
+Label: earn
 
-2. Article: Cocoa production in Ivory Coast is expected to reach a record 700,000 tonnes this season owing to favorable rainfall in the growing regions.
-Label: not an earnings report
+2. Article: Gulf Resources and Chemical Corp said it agreed to acquire Chem-Tronics Inc for about 35 mln dlrs in cash.
+Label: acq
 
-3. Article: IBM Corp posted quarterly net income of 2.1 billion dlrs, up 12 pct from the prior year, driven by strong growth in its software division.
-Label: earnings report
+3. Article: The dollar fell sharply against the yen and mark today after Federal Reserve officials signaled they would not intervene to support the currency.
+Label: money-fx
 
-4. Article: OPEC ministers agreed to cut oil output by 1.5 mln barrels per day starting next quarter to stabilize falling crude prices.
-Label: not an earnings report
+4. Article: US corn exports fell for the third straight week as buyers shifted to cheaper South American supplies ahead of the Brazilian harvest.
+Label: grain
 
-5. Article: General Motors Corp said its first-quarter profit rose to 1.8 billion dlrs, or 2.50 dlrs per share, from 1.2 billion a year ago.
-Label: earnings report
+5. Article: OPEC ministers agreed to cut oil output by 1.5 mln barrels per day starting next quarter to stabilize falling crude prices.
+Label: crude
 
 6. Article: {text}
 Label:

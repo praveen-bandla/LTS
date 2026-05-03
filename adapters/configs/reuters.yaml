@@ -18,9 +18,23 @@ columns:
 
 prompt:
   template_path: ../../prompts/reuters/gpt_prompt.txt
-  positive_text: earnings report
-  positive_value: 1
-  negative_value: 0
+  label_map:
+    earn: 0
+    acq: 1
+    acquisition: 1
+    merger: 1
+    money-fx: 2
+    foreign exchange: 2
+    currency: 2
+    grain: 3
+    crude: 4
+    oil: 4
+    trade: 5
+    interest: 6
+    wheat: 7
+    other: 8
+  default_value: 8
 
 trainer:
   model_name: bert-base-uncased
+  num_labels: 9

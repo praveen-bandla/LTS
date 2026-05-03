@@ -1,6 +1,7 @@
 """Prepare Emotions dataset: parse txt files → pool and validation CSVs.
 
-Binary task: joy = 1, all other emotions = 0.
+Multiclass task (6 classes):
+    sadness=0  anger=1  fear=2  joy=3  love=4  surprise=5
 
 Run from the repo root:
     python scripts/prepare_emotions.py
@@ -9,11 +10,23 @@ Run from the repo root:
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 
-EMOTIONS_DIR = "emotions_dataset_for_NLP"
-OUTPUT_DIR = "data_use_cases"
-POSITIVE_EMOTION = "joy"
+from config import DATASET_PATHS
+
+EMOTIONS_DIR = str(DATASET_PATHS.emotions_raw_dir)
+OUTPUT_DIR = str(DATASET_PATHS.output_dir)
+
+LABEL_MAP = {
+    "sadness": 0,
+    "anger": 1,
+    "fear": 2,
+    "joy": 3,
+    "love": 4,
+    "surprise": 5,
+}
 
 
 def parse_emotions_file(filepath: str) -> list[dict]:
@@ -43,8 +56,8 @@ def main() -> None:
 
     pool_df["id"] = pool_df.index.astype(str)
     val_df["id"] = val_df.index.astype(str)
-    pool_df["label"] = (pool_df["emotion"] == POSITIVE_EMOTION).astype(int)
-    val_df["label"] = (val_df["emotion"] == POSITIVE_EMOTION).astype(int)
+    pool_df["label"] = pool_df["emotion"].map(LABEL_MAP)
+    val_df["label"] = val_df["emotion"].map(LABEL_MAP)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     pool_path = os.path.join(OUTPUT_DIR, "emotions_pool.csv")
@@ -52,8 +65,9 @@ def main() -> None:
     pool_df.to_csv(pool_path, index=False)
     val_df.to_csv(val_path, index=False)
 
-    print(f"Pool    → {pool_path}: {len(pool_df)} samples, {pool_df['label'].sum()} positive ({POSITIVE_EMOTION})")
-    print(f"Validation → {val_path}: {len(val_df)} samples, {val_df['label'].sum()} positive ({POSITIVE_EMOTION})")
+    print(f"Pool       → {pool_path}: {len(pool_df)} samples")
+    print(f"Validation → {val_path}: {len(val_df)} samples")
+    print(f"\nLabel distribution (pool):\n{pool_df['emotion'].value_counts()}")
 
 
 if __name__ == "__main__":

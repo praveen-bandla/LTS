@@ -10,11 +10,15 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-NEWSGROUPS_DIR = "20_newsgroups"
-OUTPUT_DIR = "data_use_cases"
+from config import DATASET_PATHS
+
+NEWSGROUPS_DIR = str(DATASET_PATHS.newsgroups_raw_dir)
+OUTPUT_DIR = str(DATASET_PATHS.output_dir)
 RANDOM_SEED = 42
 VAL_FRACTION = 0.2
 

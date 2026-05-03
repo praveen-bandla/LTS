@@ -22,12 +22,16 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-OUTPUT_DIR = "data_use_cases"
-LOCAL_ARCHIVE = "webkb-data.gtar.gz"
-LOCAL_DIR = "webkb"
+from config import DATASET_PATHS
+
+OUTPUT_DIR = str(DATASET_PATHS.output_dir)
+LOCAL_ARCHIVE = str(DATASET_PATHS.webkb_archive)
+LOCAL_DIR = str(DATASET_PATHS.webkb_raw_dir)
 RANDOM_SEED = 42
 VAL_FRACTION = 0.2
 

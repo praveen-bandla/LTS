@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lts-parallel
+spec:
+  completions: 3
+  parallelism: 3
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: lts-storage
+          persistentVolumeClaim:
+            claimName: lts-data
+      containers:
+        - name: lts-runner
+          image: pytorch/pytorch:2.2.0-cuda11.8-cudnn8-runtime
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai-secret
+                  key: OPENAI_API_KEY
+            - name: DATASET_INDEX
+              value: "$(JOB_COMPLETION_INDEX)"
+          command:
+            - bash
+            - -c
+            - |
+              # Map job index to dataset name
+              DATASETS=(wildlife emotions reuters)
+              DATASET=${DATASETS[$JOB_COMPLETION_INDEX]}
+              echo "=== Starting dataset: $DATASET ==="
+
+              # Install git if not present
+              apt-get update -qq && apt-get install -y -qq git
+
+              # Clone repo into /data/<dataset> so all artifacts land on PVC
+              cd /data
+              if [ ! -d "$DATASET/repo" ]; then
+                git clone --branch new_datasets https://github.com/praveen-bandla/LTS.git $DATASET/repo
+              else
+                echo "Repo already cloned, pulling latest"
+                cd $DATASET/repo && git pull && cd /data
+              fi
+
+              cd /data/$DATASET/repo
+
+              # Install dependencies
+              pip install -q -r requirements.txt
+
+              # Override artifact_root in the adapter config to write to PVC
+              # This makes artifacts go to /data/<dataset>/artifacts/ instead of relative path
+              sed -i "s|artifact_root: artifacts|artifact_root: /data/$DATASET/artifacts|g" adapters/configs/$DATASET.yaml
+
+              # Run the pipeline
+              python main_cluster.py -dataset $DATASET
+
+              echo "=== Done: $DATASET ==="
+          volumeMounts:
+            - name: lts-storage
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 4
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            limits:
+              cpu: 8
+              memory: 32Gi
+              nvidia.com/gpu: 1

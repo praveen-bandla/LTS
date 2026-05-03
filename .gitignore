@@ -8,3 +8,4 @@ log/
 models/
 .env
 /env
+k8s/secret.yaml

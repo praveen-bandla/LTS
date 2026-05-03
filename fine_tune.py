@@ -21,6 +21,7 @@ class BertFineTuner:
         logging_dir: str = "./logs",
         learning_rate=2e-5,
         dropout=0.2,
+        num_labels: int = 2,
     ):
         """BERT fine-tuner used by the sampling loop.
 
@@ -41,12 +42,13 @@ class BertFineTuner:
         self.run_clf = False
         self.learning_rate = learning_rate
         self.weight_decay = 0.00 # previously None, checking if this solves error 4/15/26 RMG
+        self.num_labels = num_labels
         if dropout:
-            model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+            model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
             model.config.hidden_dropout_prob = dropout
             self.model = model
         else:
-            self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+            self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
         self.model.to(self.device)
 
 
@@ -174,7 +176,8 @@ class BertFineTuner:
                 compute_metrics=BertFineTuner.compute_metrics,
                 train_dataset=tokenized_data["train"],
                 eval_dataset=tokenized_data["val"],
-                callbacks=[early_stopping_callback]
+                callbacks=[early_stopping_callback],
+                num_labels=self.num_labels,
             )
 
             # Fine-tune the model
@@ -240,7 +243,7 @@ class BertFineTuner:
         if save_model:
             self.save_model(model_name)
         self.last_model_acc = {model_name: model_acc}
-        self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+        self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=self.num_labels)
         self.base_model = model_name
         self.model.to(self.device)
 
@@ -257,7 +260,8 @@ class MyTrainer(Trainer):
             compute_metrics: Optional[Callable[[Any], Dict]] = None,
             callbacks: Optional[List[Any]] = None,
             optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
-            preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None):
+            preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
+            num_labels: int = 2):
         super().__init__(
             model=model,
             args=args,
@@ -271,6 +275,7 @@ class MyTrainer(Trainer):
             optimizers=optimizers,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics
         )
+        self._num_labels = num_labels
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         labels = inputs.pop("labels")
@@ -278,7 +283,12 @@ class MyTrainer(Trainer):
         # forward pass
         outputs = model(**inputs)
         logits = outputs.get("logits")
-        loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([0.2, 0.8], device=model.device))
+        # Binary: use class weights to handle imbalance. Multiclass: equal weights.
+        if self._num_labels == 2:
+            weight = torch.tensor([0.2, 0.8], device=model.device)
+        else:
+            weight = None
+        loss_fct = nn.CrossEntropyLoss(weight=weight)
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
 
