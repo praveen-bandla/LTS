@@ -246,25 +246,34 @@ class MyTrainer(Trainer):
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
 
-class EarlyStoppingCallback(nn.Module): # Simplified reference for the callback logic
+from transformers import TrainerCallback
+
+class EarlyStoppingCallback(TrainerCallback):
     def __init__(self, patience=5, log_dir=None):
-        super().__init__()
         self.patience = patience
         self.best_loss = float('inf')
         self.wait = 0
         self.log_dir = log_dir
 
-    def on_epoch_end(self, args, state, control, **kwargs):
-        if state.is_world_process_zero and state.log_history:
-            current_loss = next((entry['eval_loss'] for entry in reversed(state.log_history) if 'eval_loss' in entry), None)
-            if current_loss is not None:
-                if current_loss < self.best_loss:
-                    self.best_loss, self.wait = current_loss, 0
-                else:
-                    self.wait += 1
-                    if self.wait >= self.patience:
-                        control.should_training_stop = True
-                if self.log_dir:
-                    os.makedirs(self.log_dir, exist_ok=True)
-                    with open(f"{self.log_dir}/epoch_{state.epoch}.txt", "w") as f:
-                        f.write(str(state.log_history))
+    def on_evaluate(self, args, state, control, metrics, **kwargs):
+        # Look for the evaluation loss in the metrics dictionary
+        current_loss = metrics.get("eval_loss")
+        
+        if current_loss is not None:
+            if current_loss < self.best_loss:
+                self.best_loss = current_loss
+                self.wait = 0
+            else:
+                self.wait += 1
+                if self.wait >= self.patience:
+                    print(f"Early stopping triggered. No improvement for {self.patience} evaluation steps.")
+                    control.should_training_stop = True
+        
+        # Save logs if log_dir is provided
+        if self.log_dir and state.is_world_process_zero:
+            os.makedirs(self.log_dir, exist_ok=True)
+            log_path = os.path.join(self.log_dir, f"history_epoch_{state.epoch}.txt")
+            with open(log_path, "w") as f:
+                f.write(str(state.log_history))
+        
+        return control
