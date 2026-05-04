@@ -1,5 +1,5 @@
 from typing import Any, Optional, Dict, Union, Tuple, Callable, List
-from transformers import Trainer, TrainingArguments, BertTokenizer, BertForSequenceClassification, PreTrainedModel, PreTrainedTokenizerBase, DataCollatorWithPadding
+from transformers import Trainer, TrainingArguments, BertTokenizer, BertForSequenceClassification, PreTrainedModel, PreTrainedTokenizerBase, DataCollatorWithPadding, TrainerCallback
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from datasets import Dataset, DatasetDict
 import torch
