@@ -84,6 +84,9 @@ def main():
         config_path = args.config or f"adapters/configs/{args.dataset}.yaml"
         adapter = AdapterRegistry.create(args.dataset, config_path)
         paths = adapter.get_paths()
+        adapter_balance = adapter.config.get("training", {}).get("balance", None)
+        if adapter_balance is not None:
+            balance = adapter_balance
 
     if adapter is not None:
         id_col = adapter.get_id_col()
