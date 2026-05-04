@@ -101,6 +101,12 @@ class BertFineTuner:
         def tokenize_function(element):
             return self.tokenizer(element[self.text_col], padding="max_length", truncation=True, max_length=512)
 
+        # HuggingFace requires integer labels; guard against float dtype from CSV reads.
+        train = train.copy()
+        test = test.copy()
+        train[self.label_col] = train[self.label_col].astype(int)
+        test[self.label_col] = test[self.label_col].astype(int)
+
         dataset_train = Dataset.from_pandas(train[[self.text_col, self.label_col]])
         dataset_val = Dataset.from_pandas(test[[self.text_col, self.label_col]])
 

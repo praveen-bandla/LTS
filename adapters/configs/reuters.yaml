@@ -7,10 +7,9 @@ data:
 
 columns:
   id: id
-  input_text: title
-  description: text
+  input_text: text          # full article body — used by LDA, GPT labeler, and BERT
   target: label
-  clean_text: clean_title
+  clean_text: clean_text
   cluster: label_cluster
   predicted: predicted_label
   answer: answer

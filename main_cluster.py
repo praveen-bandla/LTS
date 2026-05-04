@@ -237,19 +237,17 @@ def main():
                 df = pd.concat([df, pos]).sample(frac=1)
                 print(f"adding positive data: {df['label'].value_counts()}")
         if balance:
-            if len(df[df[label_counts_col]==1]) > 0:
-                unbalanced = len(df[df[label_counts_col]==0]) / len(df[df[label_counts_col]==1]) > 2
+            label_counts = df[label_counts_col].value_counts()
+            if len(label_counts) > 1:
+                unbalanced = label_counts.max() / label_counts.min() > 2
                 if unbalanced:
-                    label_counts = df[label_counts_col].value_counts()
-                    # Determine the number of samples to keep for each label
-                    min_count = min(label_counts)
-                    balanced_df = pd.concat([
-                        df[df[label_counts_col] == 0].sample(min_count*2),
-                        df[df[label_counts_col] == 1].sample(min_count)
-                    ])
-
-                    # Shuffle the rows
-                    df = balanced_df.sample(frac=1).reset_index(drop=True)
+                    min_count = int(label_counts.min())
+                    # Cap every class at 2× the minority count; never over-sample
+                    balanced_parts = [
+                        grp.sample(min(len(grp), min_count * 2), replace=False)
+                        for _, grp in df.groupby(label_counts_col)
+                    ]
+                    df = pd.concat(balanced_parts).sample(frac=1).reset_index(drop=True)
                     print(f"Balanced data: {df[label_counts_col].value_counts()}")
             # else:
                 # if i == 0: # if this is the first model training
@@ -269,7 +267,8 @@ def main():
         print(f"Starting training")
 
         try:
-            still_unbalenced = len(df[df[label_counts_col]==0]) / len(df[df[label_counts_col]==1])  >= 2
+            _lc = df[label_counts_col].value_counts()
+            still_unbalenced = _lc.max() / _lc.min() >= 2
         except Exception:
             still_unbalenced = True
         print(f"Unbalanced? {still_unbalenced}")
@@ -317,12 +316,13 @@ def main():
             trainer.update_model(model_name, baseline, save_model=False)
             # save positive sample
             if adapter is not None:
+                # Save all minority-class rows so rare classes accumulate across rounds.
+                _lc = df[label_counts_col].value_counts()
+                _majority = _lc.idxmax()
+                df_pos = df[df[label_counts_col] != _majority]
                 if paths.positive_data_path.exists():
                     positive = pd.read_csv(paths.positive_data_path)
-                    df_pos = df[df[label_counts_col] == 1]
                     df_pos = pd.concat([df_pos, positive]).drop_duplicates()
-                else:
-                    df_pos = df[df[label_counts_col] == 1]
                 df_pos.to_csv(paths.positive_data_path, index=False)
             else:
                 if os.path.exists('positive_data.csv'):
