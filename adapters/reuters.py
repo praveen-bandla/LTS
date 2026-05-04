@@ -17,6 +17,18 @@ from fine_tune import BertFineTuner
 class ReutersAdapter(DataAdapter):
     name = "reuters"
 
+    def prepare_pool_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().prepare_pool_df(df)
+        df = df.copy()
+        df["text"] = df["text"].fillna(df["title"]).fillna("").astype(str)
+        return df
+
+    def prepare_validation_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().prepare_validation_df(df)
+        df = df.copy()
+        df["text"] = df["text"].fillna(df["title"]).fillna("").astype(str)
+        return df
+
     def parse_model_output(self, output: str) -> int:
         label_map: dict = self.config.get("prompt", {}).get("label_map", {})
         default = int(self.config.get("prompt", {}).get("default_value", 8))
