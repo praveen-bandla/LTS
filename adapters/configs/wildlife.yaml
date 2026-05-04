@@ -5,7 +5,7 @@ run_name: wildlife
 artifact_root: artifacts
 
 data:
-  pool_csv: ../../data_use_cases/shark_trophy.csv
+  pool_csv: ../../data_use_cases/shark_trophy_v2.csv
   validation_csv: ../../data_use_cases/validation_sharks.csv
 
 columns:

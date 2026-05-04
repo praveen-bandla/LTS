@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lts-praveen-worker
+  namespace: lts
+spec:
+  containers:
+  - name: python-env
+    image: python:3.11.2
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    resources:
+      limits:
+        cpu: "16"
+        memory: "100Gi"
+        nvidia.com/gpu: "1"
+      requests:
+        cpu: "100m"
+        memory: "1Gi"
+        nvidia.com/gpu: "1"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/praveen
+  volumes:
+  - name: data-volume
+    persistentVolumeClaim:
+      claimName: lts-praveen-storage
