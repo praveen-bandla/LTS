@@ -51,7 +51,51 @@ class BertFineTuner:
             self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
         self.model.to(self.device)
 
+    # Add this inside the BertFineTuner class in fine_tune.py
 
+def run_hyperparameter_search(self, df: pd.DataFrame, metric: str = "accuracy") -> Dict[str, Any]:
+    """Runs a grid search over LR and Weight Decay, resetting the model each time."""
+    learning_rates = [1e-5, 2e-5, 5e-5]
+    weight_decays = [0.0, 0.01, 0.1]
+    
+    best_score = -float('inf')
+    best_params = {"lr": self.learning_rate, "wd": self.weight_decay}
+    
+    # Store the original model name to reset from
+    original_base = self.base_model 
+
+    for lr in learning_rates:
+        for wd in weight_decays:
+            print(f">>> Testing Grid: LR={lr}, WD={wd}")
+            
+            # HARD RESET: Fresh model for every trial
+            self.model = BertForSequenceClassification.from_pretrained(
+                original_base, num_labels=self.num_labels
+            ).to(self.device)
+            
+            self.learning_rate = lr
+            self.weight_decay = wd
+            
+            # Use the existing train_data logic
+            # We assume 'still_unbalanced' check is handled or True for safety
+            results, _ = self.train_data(df, still_unbalenced=True)
+            
+            current_score = results.get(f"eval_{metric}", 0)
+            if current_score > best_score:
+                best_score = current_score
+                best_params = {"lr": lr, "wd": wd}
+                print(f"New best grid score: {best_score}")
+
+    # Set trainer to the best found parameters for the final "real" training
+    self.learning_rate = best_params["lr"]
+    self.weight_decay = best_params["wd"]
+    
+    # Final Reset to the best parameters
+    self.model = BertForSequenceClassification.from_pretrained(
+        original_base, num_labels=self.num_labels
+    ).to(self.device)
+    
+    return best_params
     def set_clf(self, set: bool):
         self.run_clf = set
 
@@ -69,6 +113,52 @@ class BertFineTuner:
 
     def get_base_model(self):
         return self.base_model
+
+    # Add this inside the BertFineTuner class in fine_tune.py
+
+    def run_hyperparameter_search(self, df: pd.DataFrame, metric: str = "accuracy") -> Dict[str, Any]:
+        """Runs a grid search over LR and Weight Decay, resetting the model each time."""
+        learning_rates = [1e-5, 2e-5, 5e-5]
+        weight_decays = [0.0, 0.01, 0.1]
+    
+        best_score = -float('inf')
+        best_params = {"lr": self.learning_rate, "wd": self.weight_decay}
+    
+        # Store the original model name to reset from
+        original_base = self.base_model 
+
+        for lr in learning_rates:
+            for wd in weight_decays:
+                print(f">>> Testing Grid: LR={lr}, WD={wd}")
+            
+                # HARD RESET: Fresh model for every trial
+                self.model = BertForSequenceClassification.from_pretrained(
+                    original_base, num_labels=self.num_labels
+                ).to(self.device)
+            
+                self.learning_rate = lr
+                self.weight_decay = wd
+            
+                # Use the existing train_data logic
+                # We assume 'still_unbalanced' check is handled or True for safety
+                results, _ = self.train_data(df, still_unbalenced=True)
+            
+                current_score = results.get(f"eval_{metric}", 0)
+                if current_score > best_score:
+                    best_score = current_score
+                    best_params = {"lr": lr, "wd": wd}
+                    print(f"New best grid score: {best_score}")
+
+        # Set trainer to the best found parameters for the final "real" training
+        self.learning_rate = best_params["lr"]
+        self.weight_decay = best_params["wd"]
+    
+        # Final Reset to the best parameters
+        self.model = BertForSequenceClassification.from_pretrained(
+            original_base, num_labels=self.num_labels
+        ).to(self.device)
+    
+        return best_params
 
     # --- Adapter-facing API ---
 
