@@ -250,7 +250,7 @@ class DataAdapter(ABC):
         """Map a raw model output into a 0/1 label.
 
         Default behavior uses adapter config fields:
-        - prompt.positive_text (substring match, case-insensitive)
+        - prompt.positive_text (exact match, case-insensitive)
         - prompt.positive_value / negative_value
         """
         positive_text = str(self.config.get("prompt", {}).get("positive_text", "relevant"))
@@ -260,7 +260,7 @@ class DataAdapter(ABC):
         normalized = (output or "").strip().lower()
         if not normalized:
             return negative_value
-        if positive_text.lower() in normalized:
+        if normalized == positive_text.lower():
             return positive_value
         if normalized in {"1", "yes", "true", "relevant"}:
             return positive_value
