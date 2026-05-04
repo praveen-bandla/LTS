@@ -256,6 +256,17 @@ def main():
                 # if i == 0: # if this is the first model training
                 # unbalanced = True
                 # print("No positive samples to balance with.")
+        
+        # Run grid search on the first iteration to lock in best hyperparams
+        if i == 0:
+            print("\n--- Running Hyperparameter Grid Search ---")
+            # This uses the fresh labeled 'df'
+            best_params = trainer.run_hyperparameter_search(df, metric=metric)
+            print(f"Optimal Params Found: {best_params}\n")
+
+        ## FINE TUNE MODEL (Existing logic continues below)
+        model_name = trainer.get_base_model()
+        
         ## FINE TUNE MODEL
 
         #previous model
