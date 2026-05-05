@@ -27,5 +27,8 @@ prompt:
 
 trainer:
   model_name: bert-base-uncased
+  fp16: true
+  max_seq_length: 128
+  per_device_train_batch_size: 16
   # text_col defaults to columns.input_text
   # label_col defaults to columns.target
