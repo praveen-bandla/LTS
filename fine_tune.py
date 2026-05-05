@@ -167,23 +167,40 @@ class BertFineTuner:
         early_stopping_callback = EarlyStoppingCallback(patience=5, log_dir=self.logging_dir)
         tokenized_data, data_collator = self.create_dataset(df, self.test_data)
 
+        # training_args = TrainingArguments(
+        #     output_dir=self.output_dir,
+        #     eval_strategy="epoch",
+        #     save_strategy="epoch",
+        #     metric_for_best_model="eval_accuracy",
+        #     per_device_train_batch_size=32,
+        #     per_device_eval_batch_size=32,
+        #     num_train_epochs=20, # Note: Consider lowering this for grid search trials
+        #     learning_rate=self.learning_rate,
+        #     weight_decay=self.weight_decay,
+        #     save_total_limit=2,
+        #     logging_steps=10,
+        #     push_to_hub=False,
+        #     logging_dir=self.logging_dir,
+        #     load_best_model_at_end=True
+        # )
         training_args = TrainingArguments(
             output_dir=self.output_dir,
             eval_strategy="epoch",
             save_strategy="epoch",
-            metric_for_best_model="eval_accuracy",
+            metric_for_best_model="eval_f1", # Changed this to f1 for you too
             per_device_train_batch_size=32,
             per_device_eval_batch_size=32,
-            num_train_epochs=20, # Note: Consider lowering this for grid search trials
+            num_train_epochs=20, 
             learning_rate=self.learning_rate,
             weight_decay=self.weight_decay,
             save_total_limit=2,
             logging_steps=10,
             push_to_hub=False,
             logging_dir=self.logging_dir,
-            load_best_model_at_end=True
+            load_best_model_at_end=True,
+            fp16=True  
         )
-
+        
         trainer_class = MyTrainer if still_unbalenced else Trainer
         extra_args = {"num_labels": self.num_labels} if still_unbalenced else {}
 
