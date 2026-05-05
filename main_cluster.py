@@ -367,9 +367,15 @@ def main():
 
 
     if sampling == "thompson":
-        print("Bendt with highest expected improvement:", np.argmax(sampler.wins / (sampler.wins + sampler.losses)))
-        print(sampler.wins)
-        print(sampler.losses)
+        # print("Bendt with highest expected improvement:", np.argmax(sampler.wins / (sampler.wins + sampler.losses)))
+        # print(sampler.wins)
+        # print(sampler.losses)
+        # Safe division: where total is 0, return 0 instead of NaN
+        total_attempts = sampler.wins + sampler.losses
+        expected_improvement = np.divide(sampler.wins, total_attempts, 
+                                     out=np.zeros_like(sampler.wins), 
+                                     where=total_attempts != 0)
+        print("Bandit with highest expected improvement:", np.argmax(expected_improvement))
     # Save the DataFrame with cluster labels
     # umap_df.to_csv("./data/gpt_training_with_clusters.csv", index=False)
 
