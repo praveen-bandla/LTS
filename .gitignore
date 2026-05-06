@@ -8,4 +8,9 @@ log/
 models/
 .env
 /env
-k8s/secret.yaml
+k8s/secret.yamlartifacts/
+.env
+__pycache__/
+*.pyc
+*.log
+__pycache__/
