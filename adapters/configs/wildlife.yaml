@@ -5,7 +5,7 @@ run_name: wildlife
 artifact_root: artifacts
 
 data:
-  pool_csv: ../../data_use_cases/shark_trophy.csv
+  pool_csv: ../../data_use_cases/shark_trophy_v2.csv
   validation_csv: ../../data_use_cases/validation_sharks.csv
 
 columns:
@@ -27,5 +27,8 @@ prompt:
 
 trainer:
   model_name: bert-base-uncased
+  fp16: true
+  max_seq_length: 128
+  per_device_train_batch_size: 16
   # text_col defaults to columns.input_text
   # label_col defaults to columns.target

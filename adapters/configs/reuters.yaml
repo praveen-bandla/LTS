@@ -1,0 +1,42 @@
+run_name: reuters
+artifact_root: artifacts
+
+data:
+  pool_csv: ../../data_use_cases/reuters_pool.csv
+  validation_csv: ../../data_use_cases/reuters_validation.csv
+
+columns:
+  id: id
+  input_text: text          # full article body — used by LDA, GPT labeler, and BERT
+  target: label
+  clean_text: clean_text
+  cluster: label_cluster
+  predicted: predicted_label
+  answer: answer
+  prompt: prompt
+
+prompt:
+  template_path: ../../prompts/reuters/gpt_prompt.txt
+  label_map:
+    earn: 0
+    acq: 1
+    acquisition: 1
+    merger: 1
+    money-fx: 2
+    foreign exchange: 2
+    currency: 2
+    grain: 3
+    crude: 4
+    oil: 4
+    trade: 5
+    interest: 6
+    wheat: 7
+    other: 8
+  default_value: 8
+
+trainer:
+  model_name: bert-base-uncased
+  num_labels: 9
+
+training:
+  balance: false

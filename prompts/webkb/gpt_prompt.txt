@@ -1,0 +1,25 @@
+You are a labeling tool to create labels for a classification task.
+I will provide text from a university website page.
+The page should be classified in two labels:
+Label 1: student page - if the page belongs to a graduate or undergraduate student (personal homepage, research summary, or student profile).
+Label 2: not a student page - if the page belongs to a faculty member, staff, a course listing, a department, a research project, or any other non-student category.
+Return only one of the two labels: student page or not a student page. No explanation is necessary.
+
+Examples:
+1. Page: Hi, I am John Smith, a second-year PhD student in the Computer Science department. My research interests are in machine learning and computer vision. I expect to graduate in 2006.
+Label: student page
+
+2. Page: CS 445 Introduction to Machine Learning. This course covers supervised and unsupervised learning methods. Instructor: Professor Jane Doe. Meets Tuesdays and Thursdays 3-4:30pm.
+Label: not a student page
+
+3. Page: Jane Johnson, Graduate Research Assistant, Department of Electrical Engineering. I am working on my dissertation on adaptive signal processing under Professor Williams.
+Label: student page
+
+4. Page: Professor Robert Chen, Associate Professor of Computer Science. Research interests: natural language processing, information retrieval. Office: Gates Hall 312. Office hours: Mondays 2-4pm.
+Label: not a student page
+
+5. Page: Welcome to the Cornell Computer Science Department. Our department has over 50 faculty members and 300 graduate students conducting research across all areas of computing.
+Label: not a student page
+
+6. Page: {text}
+Label:

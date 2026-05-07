@@ -8,3 +8,21 @@ log/
 models/
 .env
 /env
+k8s/secret.yaml
+
+# Artifacts — ignore large files, keep small result files
+artifacts/**/model.safetensors
+artifacts/**/optimizer.pt
+artifacts/**/checkpoint-*/
+artifacts/**/lda_cache.csv
+artifacts/**/data_labeled.csv
+artifacts/**/training_data.csv
+artifacts/**/positive_data.csv
+artifacts/**/models/
+artifacts/**/results/
+artifacts/**/.DS_Store
+.env
+__pycache__/
+*.pyc
+*.log
+__pycache__/
