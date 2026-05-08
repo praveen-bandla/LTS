@@ -1,3 +1,10 @@
+"""LDA topic modeling for cluster assignment in the LTS pipeline.
+
+Wraps Gensim's LdaModel to assign a dominant topic cluster ID to each
+record in the unlabeled pool. Cluster IDs are used by the samplers to
+decide which subset of the pool to label next.
+"""
+
 from gensim import corpora, models
 import nltk
 from nltk.tokenize import word_tokenize
@@ -6,12 +13,14 @@ nltk.download('punkt')
 
 
 class LDATopicModel:
+    """LDA topic model wrapper that assigns a dominant cluster ID to each document."""
     def __init__(self, num_topics=10):
         self.num_topics = num_topics
         self.dictionary = None
         self.lda_model = None
 
     def fit(self, texts):
+        """Fit the LDA model on a list of text strings."""
         # Tokenize the texts
         tokenized_texts = [word_tokenize(text) for text in texts]
 
@@ -23,6 +32,7 @@ class LDATopicModel:
         self.lda_model = models.LdaModel(corpus, num_topics=self.num_topics, id2word=self.dictionary)
 
     def transform(self, texts):
+        """Return the dominant topic index for each text in a pre-fitted model."""
         # Tokenize the texts
         tokenized_texts = [word_tokenize(text) for text in texts]
 
@@ -35,6 +45,7 @@ class LDATopicModel:
         return dominant_topics
 
     def fit_transform(self, texts):
+        """Fit the model and return the dominant topic index for each text in one pass."""
         # Tokenize the texts
         tokenized_texts = [word_tokenize(text) for text in texts]
 

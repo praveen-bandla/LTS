@@ -1,3 +1,10 @@
+"""BERT fine-tuning module for the LTS active learning pipeline.
+
+Provides BertFineTuner, a column-configurable wrapper around HuggingFace Trainer
+that supports binary and multiclass sequence classification. Also defines MyTrainer
+(class-weighted loss for imbalanced datasets) and EarlyStoppingCallback.
+"""
+
 from typing import Any, Optional, Dict, Union, Tuple, Callable, List
 from transformers import Trainer, TrainingArguments, BertTokenizer, BertForSequenceClassification, PreTrainedModel, PreTrainedTokenizerBase, DataCollatorWithPadding, TrainerCallback
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -9,6 +16,14 @@ from torch import nn
 import os
 
 class BertFineTuner:
+    """BERT-based text classifier with iterative fine-tuning support.
+
+    Wraps HuggingFace Trainer to expose the Trainer protocol expected by the
+    pipeline (train, infer, save, update_model). Column names and number of
+    output labels are fully configurable so the same class works for binary
+    and multiclass tasks across different datasets.
+    """
+
     def __init__(
         self,
         model_name: Optional[str],
@@ -89,21 +104,27 @@ class BertFineTuner:
         return best_params
 
     def set_clf(self, set: bool):
+        """Enable or disable classifier-based filtering during sampling."""
         self.run_clf = set
 
     def get_clf(self):
+        """Return whether classifier filtering is currently enabled."""
         return self.run_clf
 
     def get_last_model_acc(self):
+        """Return the metrics dict from the most recent evaluation."""
         return self.last_model_acc
 
     def set_train_data(self, train):
+        """Replace the current training DataFrame."""
         self.training_data = train
 
     def get_train_data(self):
+        """Return the current training DataFrame."""
         return self.training_data
 
     def get_base_model(self):
+        """Return the name or path of the current base model."""
         return self.base_model
 
     def enable_filtering(self, enabled: bool) -> None:
@@ -126,6 +147,7 @@ class BertFineTuner:
         self.save_model(path)
 
     def create_dataset(self, train, test):
+        """Tokenize train and test DataFrames and return a tokenized DatasetDict and collator."""
         def tokenize_function(element):
             return self.tokenizer(element[self.text_col], padding="max_length", truncation=True, max_length=512)
 
@@ -144,6 +166,7 @@ class BertFineTuner:
         return tokenized_data, data_collator
 
     def create_test_dataset(self, df: pd.DataFrame) -> Dataset:
+        """Tokenize an unlabeled DataFrame for inference."""
         def tokenize_function(element):
             return self.tokenizer(element[self.text_col], padding="max_length", truncation=True, max_length=512)
 
@@ -164,6 +187,7 @@ class BertFineTuner:
         }
 
     def train_data(self, df, still_unbalenced):
+        """Run a full training + evaluation pass and return (results_dict, trainer)."""
         early_stopping_callback = EarlyStoppingCallback(patience=5, log_dir=self.logging_dir)
         tokenized_data, data_collator = self.create_dataset(df, self.test_data)
 
@@ -221,6 +245,7 @@ class BertFineTuner:
         return results, self.trainer
 
     def get_inference(self, df: pd.DataFrame) -> torch.Tensor:
+        """Run inference on df in chunks and return a tensor of predicted class indices."""
         predicted_labels = []
         chunk_size = 10000
         for i in range(0, len(df), chunk_size):
@@ -232,10 +257,12 @@ class BertFineTuner:
         return torch.cat(predicted_labels)
 
     def save_model(self, path: str):
+        """Save the current trainer's model artifacts to the given path."""
         if self.trainer:
             self.trainer.save_model(path)
 
     def update_model(self, model_name, model_acc, save_model: bool):
+        """Optionally save and then reload the model from model_name, updating the active base."""
         if save_model:
             self.save_model(model_name)
         self.last_model_acc = {model_name: model_acc}
@@ -244,6 +271,13 @@ class BertFineTuner:
         self.model.to(self.device)
 
 class MyTrainer(Trainer):
+    """HuggingFace Trainer subclass with class-weighted cross-entropy loss.
+
+    For binary tasks applies a [0.2, 0.8] weight to up-weight the positive class,
+    which helps with the label imbalance typical in active learning pools.
+    For multiclass tasks falls back to standard unweighted cross-entropy.
+    """
+
     def __init__(self, **kwargs):
         self._num_labels = kwargs.pop("num_labels", 2)
         super().__init__(**kwargs)
@@ -266,6 +300,8 @@ class MyTrainer(Trainer):
 from transformers import TrainerCallback
 
 class EarlyStoppingCallback(TrainerCallback):
+    """Stops training when eval loss stops improving and writes epoch logs to disk."""
+
     def __init__(self, patience=5, log_dir=None):
         self.patience = patience
         self.best_loss = float('inf')

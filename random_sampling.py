@@ -1,9 +1,21 @@
+"""Random sampling baseline for cluster-based active learning.
+
+Draws an equal number of samples from each cluster each iteration.
+Used as a comparison baseline against ThompsonSampler. State (selected IDs)
+is persisted to disk to prevent re-labeling the same records.
+"""
+
 from typing import Any
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 class RandomSampler:
+    """Uniform random sampler that draws evenly from each LDA cluster.
+
+    Serves as the baseline comparison for ThompsonSampler. Sampling is equal
+    across all clusters regardless of past labeling outcomes.
+    """
     def __init__(
         self,
         n_bandits,
@@ -30,6 +42,10 @@ class RandomSampler:
             self.selected_ids = set()
 
     def get_sample_data(self, df, sample_size, filter_label: bool, trainer: Any):
+        """Sample evenly from each cluster, optionally filtering by predicted label.
+
+        Excludes already-seen IDs and persists the updated selected set after each call.
+        """
         def get_sample(data, size):
             if data.empty:
                 return pd.DataFrame()

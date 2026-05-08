@@ -1,5 +1,6 @@
 data/
 llama_model/
+Dockerfile
 .ipynb_checkpoint/
 .DS_Store
 venv/
@@ -25,4 +26,22 @@ artifacts/**/.DS_Store
 __pycache__/
 *.pyc
 *.log
-__pycache__/
+
+# Unused dataset adapters
+adapters/newsgroups.py
+adapters/webkb.py
+adapters/configs/newsgroups.yaml
+adapters/configs/webkb.yaml
+scripts/prepare_newsgroups.py
+scripts/prepare_webkb.py
+prompts/newsgroups/
+prompts/webkb/
+
+# Unused dataset files
+data_use_cases/newsgroups_pool.csv
+data_use_cases/newsgroups_validation.csv
+data_use_cases/webkb_pool.csv
+data_use_cases/webkb_validation.csv
+webkb-data.gtar.gz
+20_newsgroups/
+webkb/

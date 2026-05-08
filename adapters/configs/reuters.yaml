@@ -1,3 +1,7 @@
+# Adapter config for the Reuters-21578 dataset (9-class topic classification).
+# Maps news article text → one of: earn, acq, money-fx, grain, crude, trade, interest, wheat, other.
+# Paths are resolved relative to this YAML file.
+
 run_name: reuters
 artifact_root: artifacts
 
