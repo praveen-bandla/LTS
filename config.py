@@ -68,9 +68,6 @@ class DatasetPaths:
     """Filesystem locations for raw dataset sources and the shared output directory."""
     reuters_raw_dir: Path = PROJECT_ROOT / "reuters-21578"
     emotions_raw_dir: Path = PROJECT_ROOT / "emotions_dataset_for_NLP"
-    newsgroups_raw_dir: Path = PROJECT_ROOT / "20_newsgroups"
-    webkb_archive: Path = PROJECT_ROOT / "webkb-data.gtar.gz"
-    webkb_raw_dir: Path = PROJECT_ROOT / "webkb"
     output_dir: Path = PROJECT_ROOT / "data_use_cases"
 
 

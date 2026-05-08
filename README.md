@@ -1,162 +1,153 @@
-# 🐾 Wildlife Trafficking Detection: Using LLMs to Automate the Creation of Classifiers for Data Triage
+# Wildlife Trafficking Detection: LLM-Assisted Active Learning for Text Classification
 
-This repository contains the code used in the paper:
+This repository contains the code associated with the paper:
 
 > **"A Cost-Effective LLM-based Approach to Identify Wildlife Trafficking in Online Marketplaces"**
-> Proceedings of the ACM on Management of Data, Volume 3, Issue 3. Article No.: 119, Pages 1 - 23.  
+> Proceedings of the ACM on Management of Data, Volume 3, Issue 3. Article No.: 119, Pages 1–23.
 > https://dl.acm.org/doi/10.1145/3725256
 > https://arxiv.org/html/2504.21211v1
 
----
-
-## 📚 Table of Contents
-
-1. [Requirements](#-requirements)
-2. [Setup](#-setup)
-3. [Use Cases & Reproducibility](#-use-cases--reproduction)
+The codebase extends the original approach to support multiple datasets and task types through a data adapter layer, without modifying the core algorithm.
 
 ---
 
-## 📦 Requirements
+## How It Works
 
-Experiments were conducted using **Python 3.11.2**. All required dependencies are listed in `requirements.txt` and can be installed via pip.
+The pipeline iteratively builds a text classifier from an unlabeled data pool using minimal human annotation cost:
 
-Before running GPT-based labeling, you need to set your OpenAI key via a `.env` file (see Setup below). **Do not hard-code keys in the repo**.
+1. **LDA** clusters the unlabeled pool into topic groups
+2. **GPT** labels a sample of records using a task-specific prompt
+3. **BERT** fine-tunes on the newly labeled data
+4. **Thompson/Random sampler** selects which cluster to draw from next, guided by model performance
+
+This loop repeats for a fixed number of iterations, accumulating labeled data and improving the classifier with each pass.
+
+```
+Unlabeled Pool → LDA Clusters → GPT Labeling → BERT Fine-Tune → Sampler Update → repeat
+```
 
 ---
 
-## ⚙️ Setup
+## Setup
 
-### 1. Create a Virtual Environment (Recommended)
+Experiments were conducted using **Python 3.11.2**.
 
-Use a virtual environment to avoid dependency conflicts:
+### 1. Create a virtual environment
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # For Unix/macOS
-venv\Scripts\activate     # For Windows
+source venv/bin/activate       # macOS/Linux
+venv\Scripts\activate          # Windows
 ```
 
 ### 2. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure OpenAI key (for `-labeling gpt`)
+### 3. Configure the OpenAI key
 
-Create a file named `.env` in the repo root and add:
+Create a `.env` file in the repo root:
 
-```bash
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+```
+OPENAI_API_KEY=your_key_here
 ```
 
-Notes:
-- `.env` is ignored by git via `.gitignore`.
-- The code loads `.env` centrally in `config.py`, and `labeling.py` authenticates using that.
+The key is loaded centrally in `config.py` and used by `labeling.py`. The `.env` file is gitignored.
+
+**GPU note:** `fp16: true` in adapter configs requires CUDA. CPU fallback works but is significantly slower for fine-tuning.
 
 ---
 
+## Quick Start
 
-### Required columns
+### Adapter mode (recommended)
 
-Training CSV (the `-filename` CSV) must include:
-- `id` (unique identifier per row)
-- `title` (text used for preprocessing/clustering/labeling)
-- Optional: `description` (if present, it will be concatenated with `title` during preprocessing)
-
-Validation CSV (the `-val_path` CSV) must include:
-- `title`
-- `label` (0/1)
-
----
-
-🧪 Use Cases & Reproducibility
-To reproduce experiments from the paper, run main_cluster.py with the appropriate flags:
-
-The data needed to run all experiments can be found on:
-https://drive.google.com/drive/folders/1UO4OYjBmvgKcFz71YeB1kefXqQhMvXGA?usp=sharing
-
-🔧 Required Parameters:
-
-- -sample_size: Number of samples per iteration.
-
-- -filename: Path to the dataset CSV file. Must contain a text column named 'title'.
-
-  Note: pass the *base path without* the `.csv` extension (the code reads `"<filename>.csv"` and writes `"<filename>_lda.csv"`).
-
-- -val_path: Path to the validation dataset.
-
-- -balance: Whether to balance the dataset via undersampling (bool).
-
-- -sampling: Sampling strategy (string: "thompson" or "random").
-
-- -filter_label: Whether to filter out negative samples. (bool)
-
-- -model_finetune: Model name for fine-tuning in the first iteration (string: e.g., "bert-base-uncased").
-
-- -labeling: Source of labels (string: gpt, llama, or file).
-
-- -model: Choose model type (string: text, multi-modal).
-
-- -metric: Evaluation metric used to compare models between iterations (string: "f1", "accuracy", "recall", "precision").
-
-- -baseline: Initial baseline metric score for first iteration.
-
-- -cluster_size: Number of clusters to use.
-
-
-
-👜 Use Case 1: Leather Products
 ```bash
 python main_cluster.py \
-  -sample_size 200 \
-  -filename "data_use_cases/data_leather" \
-  -val_path "data_use_cases/leather_validation.csv" \
-  -balance False \
-  -sampling "thompson" \
-  -filter_label True \
-  -model_finetune "bert-base-uncased" \
-  -labeling "gpt" \
-  -model "text" \
-  -baseline 0.5 \
-  -metric "f1" \
-  -cluster_size 10
+  -dataset wildlife \
+  -sampling thompson \
+  -sample_size 50 \
+  -labeling gpt \
+  -metric f1 \
+  -baseline 0.5
 ```
 
-🦈 Use Case 2: Shark Products
+Replace `-dataset wildlife` with any preconfigured dataset key (see table below). The adapter config is loaded automatically from `adapters/configs/<dataset>.yaml`.
+
+### Legacy mode
+
+The original interface from the paper is preserved for backwards compatibility:
+
 ```bash
 python main_cluster.py \
   -sample_size 200 \
   -filename "data_use_cases/shark_trophy" \
   -val_path "data_use_cases/validation_sharks.csv" \
   -balance True \
-  -sampling "thompson" \
+  -sampling thompson \
   -filter_label True \
-  -model_finetune "bert-base-uncased" \
-  -labeling "gpt" \
-  -model "text" \
+  -model_finetune bert-base-uncased \
+  -labeling gpt \
+  -metric f1 \
   -baseline 0.5 \
-  -metric "f1" \
   -cluster_size 5
 ```
 
-Use Case 3: Animal Products
-```bash
-python main_cluster.py \
-  -sample_size 200 \
-  -filename "data_use_cases/animals" \
-  -val_path "data_use_cases/validation_animals.csv" \
-  -balance True \
-  -sampling "thompson" \
-  -filter_label True \
-  -model_finetune "bert-base-uncased" \
-  -labeling "gpt" \
-  -model "text" \
-  -baseline 0.5 \
-  -metric "f1" \
-  -cluster_size 10
+---
+
+## Preconfigured Datasets
+
+| Dataset  | Key      | Task Type  | Classes | Config                         |
+|----------|----------|------------|---------|--------------------------------|
+| Wildlife | wildlife | Binary     | 2       | adapters/configs/wildlife.yaml |
+| Emotions | emotions | Multiclass | 6       | adapters/configs/emotions.yaml |
+| Reuters  | reuters  | Multiclass | 9       | adapters/configs/reuters.yaml  |
+
+Data files for all experiments are available at:
+https://drive.google.com/drive/folders/1UO4OYjBmvgKcFz71YeB1kefXqQhMvXGA?usp=sharing
+
+See [`adapters/README.md`](adapters/README.md) for documentation on adding a new dataset.
+
+---
+
+## Repo Structure
+
+```
+├── main_cluster.py          # Pipeline orchestrator (adapter mode + legacy mode)
+├── data_adapter.py          # DataAdapter base class + AdapterRegistry
+├── fine_tune.py             # BERT fine-tuning (BertFineTuner)
+├── labeling.py              # LLM labeling engine (GPT / LLaMA)
+├── thompson_sampling.py     # Thompson bandit sampler
+├── random_sampling.py       # Random sampling baseline
+├── preprocessing.py         # Text cleaning (TextPreprocessor)
+├── LDA.py                   # Topic modeling (LDATopicModel)
+├── config.py                # Global defaults and environment config
+├── requirements.txt
+│
+├── adapters/                # Dataset adapters and per-dataset configs
+│   ├── __init__.py          # Auto-registers all built-in adapters
+│   ├── wildlife.py
+│   ├── emotions.py
+│   ├── reuters.py
+│   ├── configs/             # YAML config files (one per dataset)
+│   └── README.md            # Adapter documentation
+│
+├── prompts/                 # LLM prompt templates (one directory per dataset)
+├── data_use_cases/          # Pool and validation CSVs
+├── artifacts/               # Run outputs — gitignored
+└── scripts/                 # Data preparation scripts
 ```
 
-📫 Contact
-For questions or feedback, please open an issue or reach out via the contact information provided in the paper.
+---
 
+## Reproducibility
+
+Each dataset run writes all outputs to `artifacts/<dataset>/`, isolated from other datasets:
+
+- **Sampler state** (`selected_ids.txt`, `wins.txt`, `losses.txt`) is preserved between runs, allowing a run to be resumed.
+- **Per-iteration metrics** are written to `artifacts/<dataset>/results/model_results.json`.
+- To restart a run from scratch, delete the `artifacts/<dataset>/` directory.
+
+All dataset-specific configuration (column names, file paths, prompt logic, trainer settings) lives in `adapters/configs/<dataset>.yaml`. See [`adapters/README.md`](adapters/README.md) for the full YAML reference.
