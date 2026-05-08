@@ -1,3 +1,7 @@
+# Adapter config for the Emotions dataset (6-class sentiment classification).
+# Maps text → one of: sadness, anger, fear, joy, love, surprise.
+# Paths are resolved relative to this YAML file.
+
 run_name: emotions
 artifact_root: artifacts
 

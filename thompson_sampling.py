@@ -1,3 +1,10 @@
+"""Thompson sampling bandit for cluster-based active learning.
+
+Maintains per-cluster Beta distribution priors (wins/losses) and selects
+the cluster most likely to yield useful labels. State is persisted to disk
+so runs can be resumed across iterations.
+"""
+
 from typing import Any
 import numpy as np
 from scipy.stats import beta
@@ -6,6 +13,12 @@ import pandas as pd
 from pathlib import Path
 
 class ThompsonSampler:
+    """Thompson sampling bandit that selects LDA clusters for active learning.
+
+    Each cluster is modeled as a Beta(wins, losses) distribution. On each call
+    to get_sample_data, the cluster with the highest sampled reward is chosen.
+    Win/loss state decays each iteration so recent performance is weighted more.
+    """
     def __init__(
         self,
         n_bandits,
@@ -52,11 +65,13 @@ class ThompsonSampler:
             self.losses = np.zeros(n_bandits)
 
     def choose_bandit(self):
+        """Sample from each cluster's Beta distribution and return the index of the best."""
         betas = beta(self.wins + self.alpha, self.losses + self.beta)
         sampled_rewards = betas.rvs(size=self.n_bandits)
         return np.argmax(sampled_rewards)
 
     def update(self, chosen_bandit, reward_difference):
+        """Update wins/losses for the chosen cluster based on reward_difference, then decay and persist."""
         if reward_difference > 0:
             self.wins[chosen_bandit] += 1
         else:
@@ -113,6 +128,13 @@ class ThompsonSampler:
 
 
     def get_sample_data(self, df, sample_size, filter_label: bool, trainer: Any):
+        """Select a batch of records from the best-scoring cluster.
+
+        If filter_label is enabled and the trainer supports inference, the batch
+        is split into positive/negative predictions before sampling to maintain
+        a balanced label mix. Already-seen IDs are excluded and the selected set
+        is persisted after each call.
+        """
         def select_data(df, chosen_bandit, sample_size):
             cluster_df = df[df[self.cluster_col] == chosen_bandit]
             return cluster_df.sample(min(sample_size, len(cluster_df)))

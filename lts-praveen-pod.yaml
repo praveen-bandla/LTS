@@ -1,3 +1,5 @@
+# Pod spec for NYU HSRN Kubernetes cluster runs.
+# Mounts persistent storage at /app/praveen and requests 1 GPU for fine-tuning.
 apiVersion: v1
 kind: Pod
 metadata:

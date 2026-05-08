@@ -1,5 +1,6 @@
 data/
 llama_model/
+Dockerfile
 .ipynb_checkpoint/
 .DS_Store
 venv/

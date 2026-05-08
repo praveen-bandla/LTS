@@ -1,8 +1,15 @@
+"""Text preprocessing utilities for the LTS pipeline.
+
+Cleans raw text before LDA clustering and LLM labeling: lowercasing,
+whitespace normalization, and removal of special characters.
+"""
+
 import re
 import string
 import numpy as np
 
 class TextPreprocessor:
+    """Cleans and normalizes raw text columns in a DataFrame."""
     def __init__(self):
         self.punctuation_regex = re.compile('[%s]' % re.escape(string.punctuation))
         self.weird_chars_regex = re.compile(r'[^a-zA-Z0-9\s]')

@@ -1,3 +1,10 @@
+"""LLM labeling engine for the LTS active learning pipeline.
+
+Wraps GPT (OpenAI) and LLaMA inference behind a single `predict(prompt)` interface.
+After the adapter refactor this class is a pure execution engine — prompt formatting
+and label parsing are handled by the dataset adapter, not here.
+"""
+
 import pandas as pd
 from pprint import pprint
 import torch
@@ -38,6 +45,7 @@ class Labeling:
         raise ValueError("No model selected")
 
     def generate_prompt(self, title):
+        """Legacy prompt builder — used only by the non-adapter code path."""
         if self.label_model == "llama":
             return self.generate_prompt_llama(title)
         elif self.label_model=="gpt":
@@ -67,6 +75,7 @@ class Labeling:
         return path.read_text(encoding="utf-8").strip() + "\n"
 
     def set_model(self):
+        """Load and initialize the selected labeling model (LLaMA or GPT client)."""
         if self.label_model == "llama":
             checkpoint = "llama/"
             self.model = AutoModelForCausalLM.from_pretrained(checkpoint).to(self.device)
@@ -100,6 +109,7 @@ class Labeling:
 
 
     def generate_inference_data(self, data, column):
+        """Legacy method: build a list of prompt dicts from a DataFrame. Not used in adapter mode."""
         def truncate_string(s, max_length=2000):  # Adjust max_length as needed
             return s[:max_length] + '...' if len(s) > max_length else s
 
@@ -120,6 +130,7 @@ class Labeling:
 
 
     def _predict_gpt(self, prompt: str, record_id: str | None = None) -> str:
+        """Call the OpenAI API with a pre-formatted prompt and return the raw response text."""
         labels = pd.read_csv("labaled_by_gpt.csv") if os.path.exists("labaled_by_gpt.csv") else None
         if labels is not None and record_id is not None:
             if record_id in labels["id"].astype(str).to_list():
@@ -140,6 +151,7 @@ class Labeling:
 
 
     def _predict_llama(self, prompt: str) -> str:
+        """Run local LLaMA inference on a pre-formatted prompt and return the extracted answer."""
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         inputs_length = len(inputs["input_ids"][0])
         with torch.inference_mode():
